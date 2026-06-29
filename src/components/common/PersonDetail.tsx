@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { listEventsByPersonId } from '../../features/events/eventService'
 import type { InteractionEvent, Person, Relationship } from '../../types'
+import { cleanVisibleTags, displayCircle } from '../../utils/display'
+import PersonAvatar from './PersonAvatar'
 
 interface PersonDetailProps {
   person: Person
@@ -10,9 +12,27 @@ interface PersonDetailProps {
   onDelete: () => void
 }
 
+function formatSigned(value: number): string {
+  return `${value >= 0 ? '+' : ''}${value}`
+}
+
+function ImpactPills({ event }: { event: InteractionEvent }) {
+  if (!event.affectRelationship) {
+    return <span className="rounded-full bg-ink/5 px-2.5 py-1 text-[11px] font-semibold text-ink/55">不影响关系数值</span>
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2 text-[11px] font-bold">
+      <span className="rounded-full bg-rose/10 px-2.5 py-1 text-rose">❤️ 亲密度 {formatSigned(event.intimacyChange)}</span>
+      <span className="rounded-full bg-lake/10 px-2.5 py-1 text-lake">🛡 信任度 {formatSigned(event.trustChange)}</span>
+    </div>
+  )
+}
+
 export default function PersonDetail({ person, relationship, events = [], onEdit, onDelete }: PersonDetailProps) {
   const isSelf = person.isSelf
   const [timelineEvents, setTimelineEvents] = useState<InteractionEvent[]>(events)
+  const visibleTags = cleanVisibleTags(person.tags).slice(0, 8)
 
   useEffect(() => {
     let active = true
@@ -41,126 +61,108 @@ export default function PersonDetail({ person, relationship, events = [], onEdit
     }
   }, [events, person.id, person.isSelf])
 
+  const intimacy = relationship?.intimacy ?? person.intimacy
+  const trust = relationship?.trust ?? person.trust
+
   return (
     <div className="space-y-4">
-      <section className="rounded-[1.5rem] bg-white/78 p-4 shadow-soft ring-1 ring-white">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-semibold text-ink">{person.name}</h2>
-            <p className="mt-1 text-sm text-ink/65">{person.nickname || '暂无昵称'}</p>
+      <section className="rounded-[1.5rem] bg-white/82 p-4 shadow-soft ring-1 ring-violet/10">
+        <div className="flex items-center gap-4">
+          <PersonAvatar name={person.name} avatar={person.avatar} seed={person.circle} className="h-16 w-16 text-2xl" />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="truncate text-2xl font-extrabold text-ink">{person.name}</h2>
+              {isSelf ? <span className="rounded-full bg-violetMist px-3 py-1 text-xs font-semibold text-violet">我的资料</span> : null}
+            </div>
+            <p className="mt-1 text-sm font-semibold text-ink/55">{person.nickname || `${person.relationType} · ${displayCircle(person.circle)}`}</p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
+              <span className="rounded-full bg-rose/10 px-3 py-1 text-rose">❤ 亲密度 {intimacy}</span>
+              <span className="rounded-full bg-lake/10 px-3 py-1 text-lake">🛡 信任度 {trust}</span>
+            </div>
           </div>
-          {isSelf ? <span className="rounded-full bg-mist px-3 py-1 text-xs font-medium text-ink/70">我的资料</span> : null}
         </div>
       </section>
 
       {isSelf ? (
-        <section className="rounded-[1.5rem] bg-mist/75 p-4 text-sm leading-6 text-ink/70 shadow-soft ring-1 ring-white">
-          这是你的中心节点。
+        <section className="rounded-[1.5rem] bg-violetMist/75 p-4 text-sm leading-6 text-ink/70 shadow-soft ring-1 ring-violet/10">
+          这是你的中心节点，会作为所有 MVP 关系的起点。
         </section>
       ) : null}
 
-      {!isSelf ? (
-        <section className="rounded-[1.5rem] bg-white/78 p-4 shadow-soft ring-1 ring-white">
-          <p className="text-xs text-ink/55">关系数据</p>
-          {relationship ? (
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              {[
-                ['关系类型', relationship.type],
-                ['关系状态', relationship.status],
-                ['亲密度', String(relationship.intimacy)],
-                ['信任度', String(relationship.trust)],
-                ['情绪倾向', relationship.emotionalTone],
-                ['关系备注', relationship.note || '无'],
-                ['关系更新时间', relationship.updatedAt],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-2xl bg-paper px-4 py-3">
-                  <p className="text-xs text-ink/55">{label}</p>
-                  <p className="mt-1 text-sm font-medium text-ink">{value || '无'}</p>
-                </div>
-              ))}
+      <section className="rounded-[1.5rem] bg-white/82 p-4 shadow-soft ring-1 ring-violet/10">
+        <h3 className="text-sm font-extrabold text-ink">关系资料</h3>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {[
+            ['关系类型', relationship?.type ?? person.relationType],
+            ['圈层', displayCircle(person.circle)],
+            ['关系状态', relationship?.status ?? person.status],
+            ['情绪倾向', relationship?.emotionalTone ?? person.emotionalTone],
+            ['重要程度', String(person.importance)],
+            ['最近互动', person.lastInteractionAt || '暂无'],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-2xl bg-paper/85 px-3 py-2.5">
+              <p className="text-[11px] font-semibold text-ink/45">{label}</p>
+              <p className="mt-1 truncate text-sm font-bold text-ink">{value || '暂无'}</p>
             </div>
-          ) : (
-            <p className="mt-3 text-sm text-ink/60">暂无关系数据</p>
-          )}
-        </section>
-      ) : null}
-
-      <section className="grid gap-3 rounded-[1.5rem] bg-white/78 p-4 shadow-soft ring-1 ring-white sm:grid-cols-2">
-        {[
-          ['关系类型', person.relationType],
-          ['圈层', person.circle],
-          ['亲密度', String(person.intimacy)],
-          ['信任度', String(person.trust)],
-          ['重要程度', String(person.importance)],
-          ['关系状态', person.status],
-          ['情绪倾向', person.emotionalTone],
-          ['联系方式', person.contactInfo || ''],
-          ['生日', person.birthday || ''],
-          ['认识日期', person.metDate || ''],
-          ['最近互动时间', person.lastInteractionAt || ''],
-          ['是否为我', person.isSelf ? '是' : '否'],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-2xl bg-paper px-4 py-3">
-            <p className="text-xs text-ink/55">{label}</p>
-            <p className="mt-1 text-sm font-medium text-ink">{value || '无'}</p>
-          </div>
-        ))}
-      </section>
-
-      <section className="rounded-[1.5rem] bg-white/78 p-4 shadow-soft ring-1 ring-white">
-        <p className="text-xs text-ink/55">标签</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {person.tags.length > 0 ? person.tags.map((tag) => (
-            <span key={tag} className="rounded-full bg-mist px-3 py-1 text-xs text-ink/70">
-              {tag}
-            </span>
-          )) : <span className="text-sm text-ink/55">暂无标签</span>}
+          ))}
         </div>
       </section>
 
-      <section className="rounded-[1.5rem] bg-white/78 p-4 shadow-soft ring-1 ring-white">
-        <p className="text-xs text-ink/55">备注</p>
-        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink/75">{person.note || '暂无备注'}</p>
+      <section className="rounded-[1.5rem] bg-white/82 p-4 shadow-soft ring-1 ring-violet/10">
+        <h3 className="text-sm font-extrabold text-ink">标签与备注</h3>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {visibleTags.length > 0 ? (
+            visibleTags.map((tag) => (
+              <span key={tag} className="rounded-full bg-violetMist px-3 py-1 text-xs font-semibold text-violet">
+                {tag}
+              </span>
+            ))
+          ) : (
+            <span className="rounded-full bg-paper px-3 py-1 text-xs font-semibold text-ink/45">暂无标签</span>
+          )}
+        </div>
+        <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-paper/75 px-3 py-3 text-sm leading-6 text-ink/68">
+          {person.note || relationship?.note || '暂无备注'}
+        </p>
       </section>
 
-      <section className="rounded-[1.5rem] bg-white/78 p-4 shadow-soft ring-1 ring-white">
-        <p className="text-xs text-ink/55">事件时间线</p>
+      <section className="rounded-[1.5rem] bg-white/82 p-4 shadow-soft ring-1 ring-violet/10">
+        <h3 className="text-sm font-extrabold text-ink">事件时间线</h3>
         {isSelf ? (
-          <p className="mt-3 text-sm text-ink/60">中心节点暂无事件。</p>
+          <p className="mt-3 text-sm text-ink/55">中心节点暂无事件。</p>
         ) : timelineEvents.length > 0 ? (
-          <div className="mt-3 space-y-3">
+          <div className="relative mt-4 space-y-3 pl-5 before:absolute before:left-1.5 before:top-2 before:h-[calc(100%-0.5rem)] before:w-px before:bg-violet/18">
             {timelineEvents.map((event) => (
-              <article key={event.id} className="rounded-2xl bg-paper px-4 py-3">
+              <article key={event.id} className="relative rounded-2xl bg-paper/85 px-4 py-3">
+                <span className="absolute -left-[1.05rem] top-4 h-2.5 w-2.5 rounded-full bg-violet ring-4 ring-white" />
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-ink">{event.title}</p>
-                    <p className="mt-1 text-xs text-ink/60">{event.eventDate} · {event.eventType} · {event.emotionalTone}</p>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-extrabold text-ink">{event.title}</p>
+                    <p className="mt-1 text-xs font-semibold text-ink/50">{event.eventDate} · {event.eventType} · {event.emotionalTone}</p>
                   </div>
-                  {event.affectRelationship ? (
-                    <span className="rounded-full bg-mist px-2 py-1 text-[11px] text-ink/70">
-                      亲密 {event.intimacyChange >= 0 ? '+' : ''}{event.intimacyChange} / 信任 {event.trustChange >= 0 ? '+' : ''}{event.trustChange}
-                    </span>
-                  ) : null}
+                  <span className="shrink-0 rounded-full bg-violetMist px-2.5 py-1 text-[11px] font-bold text-violet">{event.emotionalTone}</span>
                 </div>
                 {event.note ? <p className="mt-2 line-clamp-2 text-xs leading-5 text-ink/60">{event.note}</p> : null}
+                <div className="mt-2">
+                  <ImpactPills event={event} />
+                </div>
               </article>
             ))}
           </div>
         ) : (
-          <p className="mt-3 text-sm text-ink/60">暂无事件记录。</p>
+          <p className="mt-3 text-sm text-ink/55">暂无事件记录。</p>
         )}
       </section>
 
       <div className="flex gap-3">
-        <button type="button" className="flex-1 rounded-2xl bg-white px-4 py-3 text-sm font-medium text-ink ring-1 ring-white" onClick={onEdit}>
+        <button type="button" className="flex-1 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-ink shadow-soft ring-1 ring-violet/10" onClick={onEdit}>
           编辑
         </button>
         <button
           type="button"
-          className="flex-1 rounded-2xl px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-ink/25"
+          className="flex-1 rounded-2xl bg-rose px-4 py-3 text-sm font-bold text-white shadow-soft disabled:cursor-not-allowed disabled:bg-ink/20"
           onClick={onDelete}
           disabled={person.isSelf}
-          style={{ backgroundColor: person.isSelf ? undefined : '#d8a48f' }}
         >
           删除
         </button>

@@ -1,4 +1,4 @@
-const CIRCLE_COLORS = ['#9bb8a7', '#8fb7c7', '#e8b7bd', '#d8a48f', '#c9b8df', '#e4c96f']
+const CIRCLE_COLORS = ['#f39ab0', '#ffb19f', '#f7c4cf', '#9edac2', '#9fc7f2', '#f5d48b']
 
 export function getCircleColor(circle: string): string {
   let hash = 0
@@ -10,17 +10,18 @@ export function getCircleColor(circle: string): string {
 }
 
 export function getEdgeWidth(intimacy: number): number {
-  if (intimacy >= 80) return 4
-  if (intimacy >= 50) return 2.5
-  return 1.2
+  if (intimacy >= 80) return 3.2
+  if (intimacy >= 50) return 2.7
+  return 2.2
 }
 
-export function getEdgeStroke(status: string, emotionalTone: string): string {
-  if (status === '冲突') return '#d8755f'
-  if (status === '断联') return '#a8a29e'
-  if (emotionalTone === '负向') return '#d8755f'
-  if (emotionalTone === '正向') return '#7cae91'
-  return '#8fb7c7'
+export function getEdgeStroke(status: string, emotionalTone: string, intimacy: number): string {
+  if (status === '冲突') return '#ef8fa4'
+  if (status === '断联') return '#d8cdd0'
+  if (emotionalTone === '负向') return '#efa4ae'
+  if (intimacy >= 80) return '#f5a375'
+  if (intimacy >= 60) return '#ef8fae'
+  return '#e8bfc8'
 }
 
 export function getEdgeDashArray(status: string): string | undefined {

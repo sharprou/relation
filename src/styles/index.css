@@ -3,21 +3,43 @@
 @tailwind utilities;
 
 :root {
-  font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif;
-  color: #40362d;
-  background: #f8f4ec;
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  color: #252236;
+  background: #fff7f8;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
 body {
   margin: 0;
   min-width: 320px;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(255, 188, 202, 0.30), transparent 28rem),
+    radial-gradient(circle at 86% 16%, rgba(255, 214, 193, 0.26), transparent 26rem),
+    linear-gradient(135deg, #fff5f6 0%, #fffafb 58%, #fff2f5 100%);
 }
 
 button,
 a {
   -webkit-tap-highlight-color: transparent;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+* {
+  box-sizing: border-box;
 }

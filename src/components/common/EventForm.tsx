@@ -56,7 +56,7 @@ export default function EventForm({ event, people, onSubmit, onCancel, submitLab
   }
 
   return (
-    <div className="rounded-[1.5rem] bg-white/78 p-4 shadow-soft ring-1 ring-white">
+    <div className="rounded-[1.5rem] bg-white/86 p-4 shadow-soft ring-1 ring-violet/10">
       <div className="grid gap-4">
         <label className="grid gap-2">
           <span className="text-sm font-medium text-ink">事件标题</span>
@@ -95,19 +95,22 @@ export default function EventForm({ event, people, onSubmit, onCancel, submitLab
 
         <label className="flex items-center justify-between rounded-2xl bg-paper px-4 py-3">
           <span className="text-sm font-medium text-ink">影响关系数值</span>
-          <input type="checkbox" checked={form.affectRelationship} onChange={(event) => update('affectRelationship', event.target.checked)} />
+          <input type="checkbox" className="h-5 w-5 accent-violet" checked={form.affectRelationship} onChange={(event) => update('affectRelationship', event.target.checked)} />
         </label>
 
         {form.affectRelationship ? (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-ink">亲密度变化</span>
-              <input type="number" className="rounded-2xl border border-white bg-paper px-4 py-3 outline-none" value={form.intimacyChange} onChange={(event) => update('intimacyChange', Number(event.target.value))} />
-            </label>
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-ink">信任度变化</span>
-              <input type="number" className="rounded-2xl border border-white bg-paper px-4 py-3 outline-none" value={form.trustChange} onChange={(event) => update('trustChange', Number(event.target.value))} />
-            </label>
+          <div className="rounded-[1.25rem] bg-violetMist/55 p-3 ring-1 ring-violet/10">
+            <p className="text-xs leading-5 text-violet">保存后会同步更新人物和关系数值。</p>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-2">
+                <span className="text-sm font-medium text-ink">❤️ 亲密度变化</span>
+                <input type="number" className="rounded-2xl border border-white bg-white/80 px-4 py-3 outline-none" value={form.intimacyChange} onChange={(event) => update('intimacyChange', Number(event.target.value))} />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium text-ink">🛡 信任度变化</span>
+                <input type="number" className="rounded-2xl border border-white bg-white/80 px-4 py-3 outline-none" value={form.trustChange} onChange={(event) => update('trustChange', Number(event.target.value))} />
+              </label>
+            </div>
           </div>
         ) : null}
 
@@ -119,10 +122,10 @@ export default function EventForm({ event, people, onSubmit, onCancel, submitLab
         {error ? <p className="text-sm text-rose-700">{error}</p> : null}
 
         <div className="flex gap-3">
-          <button type="button" className="flex-1 rounded-2xl bg-white px-4 py-3 text-sm font-medium text-ink ring-1 ring-white" onClick={onCancel}>
+          <button type="button" className="flex-1 rounded-2xl bg-white px-4 py-3 text-sm font-medium text-ink ring-1 ring-violet/10" onClick={onCancel}>
             取消
           </button>
-          <button type="button" className="flex-1 rounded-2xl bg-clay px-4 py-3 text-sm font-medium text-white" onClick={handleSubmit}>
+          <button type="button" className="flex-1 rounded-2xl bg-violet px-4 py-3 text-sm font-medium text-white shadow-sm" onClick={handleSubmit}>
             {submitLabel}
           </button>
         </div>

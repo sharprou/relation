@@ -1,0 +1,1244 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>关系图谱 PWA - 移动端 UI 参考稿</title>
+    <style>
+      :root {
+        --paper: #f7f5fb;
+        --paper-2: #fbf9ff;
+        --ink: #252236;
+        --muted: #7f7895;
+        --line: #ece7f5;
+        --violet: #8f67d8;
+        --violet-2: #efe7ff;
+        --lake: #5f8ee8;
+        --sage: #5db98b;
+        --rose: #ef7193;
+        --amber: #f4b461;
+        --shadow: 0 22px 55px rgba(64, 50, 112, 0.14);
+        --soft-shadow: 0 14px 32px rgba(64, 50, 112, 0.1);
+        --radius-phone: 28px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at 18% 12%, rgba(143, 103, 216, 0.14), transparent 28rem),
+          radial-gradient(circle at 84% 18%, rgba(95, 142, 232, 0.12), transparent 26rem),
+          linear-gradient(135deg, #f3f1f8 0%, #fbf9fd 58%, #f5f7fb 100%);
+        color: var(--ink);
+        font-family:
+          "Noto Sans SC",
+          "PingFang SC",
+          "Microsoft YaHei",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      .reference-wrap {
+        width: max-content;
+        margin: 0 auto;
+        padding: 32px;
+      }
+
+      .board-title {
+        margin: 0 0 22px;
+        color: #3a334f;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .phones-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 390px);
+        gap: 28px;
+      }
+
+      .phone {
+        position: relative;
+        width: 390px;
+        height: 844px;
+        overflow: hidden;
+        border: 1px solid rgba(143, 103, 216, 0.12);
+        border-radius: var(--radius-phone);
+        background:
+          linear-gradient(90deg, rgba(143, 103, 216, 0.025) 1px, transparent 1px) 0 0 / 24px 24px,
+          linear-gradient(rgba(143, 103, 216, 0.025) 1px, transparent 1px) 0 0 / 24px 24px,
+          linear-gradient(180deg, #ffffff 0%, #fcfbff 70%, #f9f6ff 100%);
+        box-shadow: var(--shadow);
+      }
+
+      .phone::before {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        border-radius: inherit;
+        box-shadow:
+          inset 0 0 0 1px rgba(255, 255, 255, 0.75),
+          inset 0 -16px 35px rgba(143, 103, 216, 0.04);
+        content: "";
+      }
+
+      .status-bar {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        height: 42px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px 0 30px;
+        color: #13111c;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .status-icons {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .signal {
+        display: grid;
+        grid-template-columns: repeat(4, 3px);
+        align-items: end;
+        gap: 2px;
+        height: 12px;
+      }
+
+      .signal span {
+        display: block;
+        width: 3px;
+        border-radius: 2px;
+        background: #111;
+      }
+
+      .signal span:nth-child(1) {
+        height: 4px;
+      }
+
+      .signal span:nth-child(2) {
+        height: 6px;
+      }
+
+      .signal span:nth-child(3) {
+        height: 9px;
+      }
+
+      .signal span:nth-child(4) {
+        height: 12px;
+      }
+
+      .wifi {
+        width: 15px;
+        height: 11px;
+      }
+
+      .battery {
+        position: relative;
+        width: 23px;
+        height: 12px;
+        border: 1.8px solid #111;
+        border-radius: 4px;
+      }
+
+      .battery::before {
+        position: absolute;
+        top: 2px;
+        right: -4px;
+        width: 2px;
+        height: 6px;
+        border-radius: 2px;
+        background: #111;
+        content: "";
+      }
+
+      .battery::after {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 15px;
+        height: 6px;
+        border-radius: 2px;
+        background: #111;
+        content: "";
+      }
+
+      .page-head {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        min-height: 58px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 22px 10px;
+      }
+
+      h1 {
+        margin: 0;
+        color: #151321;
+        font-size: 24px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+
+      button,
+      .button {
+        border: 0;
+        font: inherit;
+      }
+
+      .icon-actions {
+        display: flex;
+        gap: 12px;
+      }
+
+      .round-icon {
+        display: grid;
+        width: 36px;
+        height: 36px;
+        place-items: center;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.72);
+        color: #201a31;
+        box-shadow: 0 10px 24px rgba(56, 40, 90, 0.08);
+      }
+
+      .primary-btn {
+        display: inline-flex;
+        height: 38px;
+        align-items: center;
+        gap: 8px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #9a70e5 0%, #8059c9 100%);
+        color: #fff;
+        padding: 0 16px;
+        box-shadow: 0 14px 24px rgba(143, 103, 216, 0.26);
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .chips {
+        display: flex;
+        gap: 10px;
+        overflow: hidden;
+        padding: 0 20px 14px;
+      }
+
+      .chip {
+        display: inline-flex;
+        height: 36px;
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid rgba(143, 103, 216, 0.13);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.78);
+        color: #625c75;
+        padding: 0 14px;
+        box-shadow: 0 8px 18px rgba(64, 50, 112, 0.05);
+        font-size: 13px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .chip.active {
+        border-color: rgba(143, 103, 216, 0.24);
+        background: var(--violet-2);
+        color: var(--violet);
+      }
+
+      .search {
+        display: flex;
+        height: 42px;
+        align-items: center;
+        gap: 10px;
+        margin: 0 20px 16px;
+        border: 1px solid rgba(143, 103, 216, 0.14);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.72);
+        color: #9a94aa;
+        padding: 0 14px;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+        font-size: 14px;
+      }
+
+      .content {
+        position: relative;
+        z-index: 2;
+        height: calc(100% - 42px - 58px - 82px);
+        overflow: hidden;
+      }
+
+      .with-search .content {
+        height: calc(100% - 42px - 58px - 42px - 16px - 82px);
+      }
+
+      .with-chips .content {
+        height: calc(100% - 42px - 58px - 50px - 82px);
+      }
+
+      .with-search.with-chips .content {
+        height: calc(100% - 42px - 58px - 42px - 16px - 50px - 82px);
+      }
+
+      .bottom-nav {
+        position: absolute;
+        z-index: 5;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        height: 82px;
+        border-top: 1px solid rgba(143, 103, 216, 0.11);
+        background: rgba(255, 255, 255, 0.88);
+        box-shadow: 0 -12px 30px rgba(64, 50, 112, 0.06);
+        backdrop-filter: blur(18px);
+      }
+
+      .tab {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding-top: 7px;
+        color: #7b7890;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .tab-inner {
+        display: flex;
+        min-width: 56px;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        border-radius: 18px;
+        padding: 8px 10px;
+      }
+
+      .tab svg {
+        width: 21px;
+        height: 21px;
+      }
+
+      .tab.active {
+        color: var(--violet);
+      }
+
+      .tab.active .tab-inner {
+        background: rgba(143, 103, 216, 0.12);
+        box-shadow: 0 10px 20px rgba(143, 103, 216, 0.12);
+      }
+
+      .graph-card {
+        position: relative;
+        height: 610px;
+        margin: 0 18px;
+        overflow: hidden;
+        border: 1px solid rgba(143, 103, 216, 0.11);
+        border-radius: 28px;
+        background:
+          radial-gradient(circle at 48% 36%, rgba(143, 103, 216, 0.15), transparent 7rem),
+          radial-gradient(circle at 82% 18%, rgba(244, 180, 97, 0.12), transparent 8rem),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.6));
+        box-shadow: var(--soft-shadow);
+      }
+
+      .graph-card svg.lines {
+        position: absolute;
+        inset: 0;
+      }
+
+      .node {
+        position: absolute;
+        display: grid;
+        place-items: center;
+        border-radius: 999px;
+        background: #fff;
+        box-shadow: 0 12px 24px rgba(64, 50, 112, 0.13);
+      }
+
+      .node .avatar,
+      .avatar {
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #fff2e9, #efe8ff);
+        color: #43354e;
+        font-weight: 800;
+      }
+
+      .node.self {
+        top: 206px;
+        left: 139px;
+        width: 112px;
+        height: 112px;
+        background: rgba(236, 224, 255, 0.92);
+        box-shadow: 0 18px 36px rgba(143, 103, 216, 0.24);
+      }
+
+      .node.self .avatar {
+        width: 72px;
+        height: 72px;
+        border: 8px solid rgba(255, 255, 255, 0.42);
+        background: linear-gradient(135deg, #ffd8c8, #e7dbff);
+        font-size: 34px;
+      }
+
+      .self-label {
+        position: absolute;
+        top: 300px;
+        left: 179px;
+        color: #211b32;
+        font-size: 16px;
+        font-weight: 800;
+      }
+
+      .person-node {
+        width: 54px;
+        height: 54px;
+        border: 2px solid var(--ring, #e6d7ff);
+      }
+
+      .person-node .avatar {
+        width: 46px;
+        height: 46px;
+        font-size: 22px;
+      }
+
+      .node-label {
+        position: absolute;
+        min-width: 82px;
+        color: #231f34;
+        font-size: 13px;
+        font-weight: 800;
+        line-height: 1.35;
+      }
+
+      .node-label span {
+        display: block;
+        color: #8b8499;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .mini-score {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 5px;
+        border-radius: 999px;
+        background: #fff;
+        color: var(--rose);
+        padding: 2px 8px;
+        box-shadow: 0 8px 16px rgba(239, 113, 147, 0.08);
+        font-size: 11px;
+      }
+
+      .legend {
+        position: absolute;
+        right: 14px;
+        bottom: 14px;
+        left: 14px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        border: 1px solid rgba(143, 103, 216, 0.1);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.78);
+        padding: 14px 16px;
+        box-shadow: 0 12px 24px rgba(64, 50, 112, 0.07);
+        backdrop-filter: blur(14px);
+      }
+
+      .legend h3 {
+        margin: 0 0 10px;
+        font-size: 12px;
+      }
+
+      .legend-row {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin: 6px 0;
+        color: #3e394f;
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .stroke-sample {
+        width: 22px;
+        height: 2px;
+        border-radius: 2px;
+        background: var(--sample);
+      }
+
+      .reset-btn {
+        position: absolute;
+        right: 24px;
+        bottom: 136px;
+        display: grid;
+        width: 46px;
+        height: 46px;
+        place-items: center;
+        border: 1px solid rgba(239, 113, 147, 0.16);
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.92);
+        color: #4b405b;
+        box-shadow: 0 14px 28px rgba(239, 113, 147, 0.12);
+      }
+
+      .people-list {
+        margin: 0 18px;
+        overflow: hidden;
+        border: 1px solid rgba(143, 103, 216, 0.1);
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.62);
+        box-shadow: var(--soft-shadow);
+      }
+
+      .person-card {
+        display: grid;
+        grid-template-columns: 54px 1fr auto;
+        gap: 12px;
+        min-height: 88px;
+        align-items: center;
+        border-bottom: 1px solid rgba(143, 103, 216, 0.09);
+        padding: 14px 14px;
+      }
+
+      .person-card:last-child {
+        border-bottom: 0;
+      }
+
+      .avatar.person {
+        width: 52px;
+        height: 52px;
+        border: 2px solid #fff;
+        box-shadow: 0 10px 20px rgba(143, 103, 216, 0.14);
+        font-size: 24px;
+      }
+
+      .person-name {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #232033;
+        font-size: 15px;
+        font-weight: 800;
+      }
+
+      .meta {
+        margin-top: 2px;
+        color: #817a91;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+      }
+
+      .tag {
+        border-radius: 999px;
+        background: var(--tag-bg, #efe7ff);
+        color: var(--tag-color, var(--violet));
+        padding: 3px 8px;
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .metrics {
+        display: flex;
+        min-width: 72px;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
+        color: #706b7f;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .metric {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.72);
+        padding: 3px 7px;
+      }
+
+      .event-filters {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        padding: 0 20px 18px;
+      }
+
+      .select-pill {
+        display: flex;
+        height: 42px;
+        align-items: center;
+        justify-content: space-between;
+        border: 1px solid rgba(143, 103, 216, 0.12);
+        border-radius: 15px;
+        background: rgba(255, 255, 255, 0.75);
+        color: #565168;
+        padding: 0 12px;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .timeline {
+        position: relative;
+        margin: 0 18px;
+        padding-left: 54px;
+      }
+
+      .timeline::before {
+        position: absolute;
+        top: 7px;
+        bottom: 0;
+        left: 46px;
+        width: 1px;
+        background: linear-gradient(180deg, rgba(143, 103, 216, 0.15), rgba(95, 142, 232, 0.25));
+        content: "";
+      }
+
+      .event-row {
+        position: relative;
+        display: grid;
+        grid-template-columns: 46px 1fr;
+        gap: 12px;
+        margin-bottom: 14px;
+        transform: translateX(-54px);
+        width: calc(100% + 54px);
+      }
+
+      .event-date {
+        color: #413a53;
+        font-size: 13px;
+        font-weight: 800;
+        line-height: 1.3;
+        text-align: right;
+      }
+
+      .event-date span {
+        display: block;
+        color: #8d8799;
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .dot {
+        position: absolute;
+        top: 6px;
+        left: 43px;
+        z-index: 2;
+        width: 8px;
+        height: 8px;
+        border: 2px solid #fff;
+        border-radius: 50%;
+        background: var(--dot, var(--violet));
+        box-shadow: 0 0 0 4px rgba(143, 103, 216, 0.1);
+      }
+
+      .event-card {
+        min-height: 116px;
+        border: 1px solid rgba(143, 103, 216, 0.1);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.72);
+        padding: 15px 16px;
+        box-shadow: 0 12px 26px rgba(64, 50, 112, 0.08);
+      }
+
+      .event-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .event-title {
+        font-size: 15px;
+        font-weight: 800;
+      }
+
+      .mood {
+        flex: 0 0 auto;
+        border-radius: 999px;
+        background: var(--mood-bg, #e9fff5);
+        color: var(--mood-color, #2b9c6c);
+        padding: 4px 9px;
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .event-person {
+        margin-top: 8px;
+        color: #4c465d;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .event-note {
+        margin: 7px 0 0;
+        color: #746d83;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.55;
+      }
+
+      .impact {
+        display: flex;
+        gap: 12px;
+        margin-top: 9px;
+        color: #5d5870;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .impact span {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .no-impact {
+        display: inline-flex;
+        margin-top: 9px;
+        border-radius: 999px;
+        background: #f2f0f7;
+        color: #817a91;
+        padding: 4px 9px;
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .settings-list {
+        height: 100%;
+        overflow: hidden;
+        padding: 0 18px 18px;
+      }
+
+      .setting-card {
+        border: 1px solid rgba(143, 103, 216, 0.11);
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.74);
+        padding: 16px;
+        box-shadow: var(--soft-shadow);
+      }
+
+      .setting-card + .setting-card {
+        margin-top: 14px;
+      }
+
+      .setting-heading {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 16px;
+        font-weight: 800;
+      }
+
+      .setting-heading .badge-icon {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        border-radius: 12px;
+        background: var(--violet-2);
+        color: var(--violet);
+      }
+
+      .setting-desc {
+        margin: 11px 0 14px;
+        color: #736d82;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.7;
+      }
+
+      .action-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .backup-action {
+        display: flex;
+        min-height: 58px;
+        align-items: center;
+        gap: 12px;
+        border: 1px solid var(--action-line);
+        border-radius: 15px;
+        background: var(--action-bg);
+        color: var(--action-color);
+        padding: 11px 12px;
+      }
+
+      .backup-action strong {
+        display: block;
+        color: inherit;
+        font-size: 14px;
+      }
+
+      .backup-action span {
+        display: block;
+        margin-top: 2px;
+        color: #827b91;
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .install-row {
+        display: grid;
+        grid-template-columns: 1fr 76px;
+        gap: 12px;
+        align-items: center;
+        border-top: 1px solid rgba(143, 103, 216, 0.09);
+        padding-top: 13px;
+      }
+
+      .install-row:first-of-type {
+        border-top: 0;
+        padding-top: 0;
+      }
+
+      .install-row + .install-row {
+        margin-top: 13px;
+      }
+
+      .install-row h3 {
+        margin: 0 0 7px;
+        font-size: 13px;
+      }
+
+      .install-row ol {
+        margin: 0;
+        padding-left: 18px;
+        color: #746d83;
+        font-size: 11px;
+        font-weight: 650;
+        line-height: 1.7;
+      }
+
+      .mini-phone {
+        position: relative;
+        width: 62px;
+        height: 82px;
+        border: 3px solid #dfcff6;
+        border-radius: 16px;
+        background: linear-gradient(180deg, #fff, #f6f2ff);
+        box-shadow: 0 10px 20px rgba(143, 103, 216, 0.11);
+      }
+
+      .mini-phone::before {
+        position: absolute;
+        top: 8px;
+        left: 21px;
+        width: 16px;
+        height: 4px;
+        border-radius: 99px;
+        background: #dfcff6;
+        content: "";
+      }
+
+      .mini-nav {
+        position: absolute;
+        right: 5px;
+        bottom: 7px;
+        left: 5px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 4px;
+      }
+
+      .mini-nav span {
+        height: 5px;
+        border-radius: 99px;
+        background: #d9e4ff;
+      }
+
+      .mini-nav span:nth-child(2) {
+        background: #f3c4d2;
+      }
+
+      .privacy-note {
+        border-radius: 18px;
+        background: linear-gradient(135deg, rgba(239, 231, 255, 0.9), rgba(244, 249, 255, 0.9));
+        color: #665f78;
+        padding: 13px 14px;
+        font-size: 12px;
+        font-weight: 650;
+        line-height: 1.65;
+      }
+
+      svg {
+        display: block;
+      }
+
+      @media (max-width: 860px) {
+        .reference-wrap {
+          width: 100%;
+          padding: 20px;
+        }
+
+        .phones-grid {
+          grid-template-columns: 390px;
+          justify-content: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="reference-wrap">
+      <p class="board-title">关系图谱 PWA / 移动端 UI 参考稿（静态视觉，不接入业务逻辑）</p>
+      <section class="phones-grid" aria-label="四个移动端页面画板">
+        <article class="phone with-chips" aria-label="图谱页">
+          <div class="status-bar">
+            <span>9:41</span>
+            <div class="status-icons">
+              <div class="signal" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+              <svg class="wifi" viewBox="0 0 18 14" aria-hidden="true">
+                <path d="M2 5.4C6.2 1.8 11.8 1.8 16 5.4" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" />
+                <path d="M5.2 8.4c2.3-1.9 5.3-1.9 7.6 0" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" />
+                <circle cx="9" cy="11.5" r="1.3" fill="#111" />
+              </svg>
+              <div class="battery" aria-hidden="true"></div>
+            </div>
+          </div>
+          <header class="page-head">
+            <h1>关系图谱</h1>
+            <div class="icon-actions">
+              <div class="round-icon" aria-label="搜索">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" />
+                  <path d="m16.5 16.5 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+              </div>
+              <div class="round-icon" aria-label="筛选">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M4 7h10M18 7h2M10 17h10M4 17h2M8 5v4M16 15v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+              </div>
+            </div>
+          </header>
+          <div class="chips">
+            <span class="chip active">全部关系</span>
+            <span class="chip">核心圈</span>
+            <span class="chip">亲密度 60+</span>
+          </div>
+          <div class="content">
+            <div class="graph-card">
+              <svg class="lines" width="354" height="610" viewBox="0 0 354 610" aria-hidden="true" opacity="0.58">
+                <path d="M177 256 C165 198 161 134 172 76" stroke="#68b891" stroke-width="2" stroke-dasharray="6 6" stroke-linecap="round" />
+                <path d="M175 256 C122 236 74 218 42 196" stroke="#b3a6e6" stroke-width="1.6" stroke-linecap="round" />
+                <path d="M181 262 C230 231 270 197 316 184" stroke="#e6a23d" stroke-width="1.8" stroke-linecap="round" />
+                <path d="M184 273 C228 302 262 329 304 358" stroke="#5f8ee8" stroke-width="1.8" stroke-linecap="round" />
+                <path d="M176 279 C167 345 165 397 169 447" stroke="#9b74df" stroke-width="1.8" stroke-dasharray="7 7" stroke-linecap="round" />
+                <path d="M170 273 C118 306 70 335 34 371" stroke="#e8a4ba" stroke-width="1.4" stroke-dasharray="7 5" stroke-linecap="round" />
+              </svg>
+
+              <div class="node person-node" style="top: 48px; left: 150px; --ring: #72c3a1;"><span class="avatar">林</span></div>
+              <div class="node-label" style="top: 56px; left: 224px;">林经理<span>工作</span><i class="mini-score">❤ 85</i></div>
+
+              <div class="node person-node" style="top: 172px; left: 24px; --ring: #cbaeff;"><span class="avatar">美</span></div>
+              <div class="node-label" style="top: 180px; left: 82px;">小美<span>朋友</span><i class="mini-score">❤ 75</i></div>
+
+              <div class="node person-node" style="top: 162px; left: 272px; --ring: #f3b25f;"><span class="avatar">明</span></div>
+              <div class="node-label" style="top: 218px; left: 274px; min-width: 58px;">小明<span>朋友</span><i class="mini-score">❤ 80</i></div>
+
+              <div class="node person-node" style="top: 332px; left: 294px; --ring: #99c3ff;"><span class="avatar">妈</span></div>
+              <div class="node-label" style="top: 342px; left: 245px;">妈妈<span>家人</span><i class="mini-score">❤ 95</i></div>
+
+              <div class="node person-node" style="top: 432px; left: 151px; --ring: #f3a5bb;"><span class="avatar">红</span></div>
+              <div class="node-label" style="top: 438px; left: 224px;">小红<span>同事</span><i class="mini-score">❤ 70</i></div>
+
+              <div class="node person-node" style="top: 336px; left: 24px; --ring: #f6beca;"><span class="avatar">强</span></div>
+              <div class="node-label" style="top: 346px; left: 82px;">阿强<span>同事</span><i class="mini-score">❤ 60</i></div>
+
+              <div class="node self"><span class="avatar">我</span></div>
+              <div class="self-label">我</div>
+
+              <div class="legend">
+                <div>
+                  <h3>亲密度</h3>
+                  <div class="legend-row"><span class="stroke-sample" style="--sample:#5db98b"></span>80-100</div>
+                  <div class="legend-row"><span class="stroke-sample" style="--sample:#f4b461"></span>60-80</div>
+                  <div class="legend-row"><span class="stroke-sample" style="--sample:#5f8ee8"></span>40-60</div>
+                </div>
+                <div>
+                  <h3>信任度</h3>
+                  <div class="legend-row"><span class="stroke-sample" style="--sample:#5f8ee8"></span>高</div>
+                  <div class="legend-row"><span class="stroke-sample" style="--sample:#8f67d8"></span>中</div>
+                  <div class="legend-row"><span class="stroke-sample" style="--sample:#ef7193"></span>低</div>
+                </div>
+              </div>
+              <div class="reset-btn" aria-label="重置视图">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="2" />
+                  <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          <nav class="bottom-nav" aria-label="底部导航">
+            <div class="tab active"><span class="tab-inner"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v6m0 0-5 5m5-5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="4" r="2" stroke="currentColor" stroke-width="2"/><circle cx="6" cy="18" r="2" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="18" r="2" stroke="currentColor" stroke-width="2"/></svg>图谱</span></div>
+            <div class="tab"><span class="tab-inner"><svg viewBox="0 0 24 24" fill="none"><path d="M16 19c0-2.2-1.8-4-4-4s-4 1.8-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="8" r="3" stroke="currentColor" stroke-width="2"/><path d="M20 19c0-1.7-1-3.1-2.4-3.7M17 5.4a3 3 0 0 1 0 5.2M4 19c0-1.7 1-3.1 2.4-3.7M7 5.4a3 3 0 0 0 0 5.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>人物</span></div>
+            <div class="tab"><span class="tab-inner"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="4" width="14" height="16" rx="3" stroke="currentColor" stroke-width="2"/><path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>事件</span></div>
+            <div class="tab"><span class="tab-inner"><svg viewBox="0 0 24 24" fill="none"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" stroke="currentColor" stroke-width="2"/><path d="M19 13.5v-3l-2.1-.4a7 7 0 0 0-.7-1.6l1.2-1.8-2.1-2.1-1.8 1.2c-.5-.3-1-.5-1.6-.7L11.5 3h-3l-.4 2.1c-.6.2-1.1.4-1.6.7L4.7 4.6 2.6 6.7l1.2 1.8c-.3.5-.5 1-.7 1.6L1 10.5v3l2.1.4c.2.6.4 1.1.7 1.6l-1.2 1.8 2.1 2.1 1.8-1.2c.5.3 1 .5 1.6.7l.4 2.1h3l.4-2.1c.6-.2 1.1-.4 1.6-.7l1.8 1.2 2.1-2.1-1.2-1.8c.3-.5.5-1 .7-1.6l2.1-.4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>设置</span></div>
+          </nav>
+        </article>
+
+        <article class="phone with-search with-chips" aria-label="人物页">
+          <div class="status-bar">
+            <span>9:41</span>
+            <div class="status-icons">
+              <div class="signal" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+              <svg class="wifi" viewBox="0 0 18 14" aria-hidden="true"><path d="M2 5.4C6.2 1.8 11.8 1.8 16 5.4" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/><path d="M5.2 8.4c2.3-1.9 5.3-1.9 7.6 0" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="11.5" r="1.3" fill="#111"/></svg>
+              <div class="battery" aria-hidden="true"></div>
+            </div>
+          </div>
+          <header class="page-head">
+            <h1>人物</h1>
+            <div class="primary-btn"><span style="font-size:20px; line-height:1;">+</span>新增</div>
+          </header>
+          <div class="search">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#8f89a0" stroke-width="2"/><path d="m16.5 16.5 4 4" stroke="#8f89a0" stroke-width="2" stroke-linecap="round"/></svg>
+            <span>搜索人物、标签、备注...</span>
+          </div>
+          <div class="chips">
+            <span class="chip active">全部 6</span>
+            <span class="chip">家人 1</span>
+            <span class="chip">朋友 2</span>
+            <span class="chip">同事 2</span>
+          </div>
+          <div class="content">
+            <div class="people-list">
+              <div class="person-card">
+                <div class="avatar person">林</div>
+                <div>
+                  <div class="person-name">林经理</div>
+                  <div class="meta">工作 · 核心圈</div>
+                  <div class="tags"><span class="tag" style="--tag-bg:#e9f2ff;--tag-color:#477ed5;">工作相关</span><span class="tag">领导</span></div>
+                </div>
+                <div class="metrics"><span class="metric">❤ 85</span><span class="metric" style="color:#5f8ee8;">🛡 80</span></div>
+              </div>
+              <div class="person-card">
+                <div class="avatar person">明</div>
+                <div>
+                  <div class="person-name">小明</div>
+                  <div class="meta">朋友 · 核心圈</div>
+                  <div class="tags"><span class="tag" style="--tag-bg:#e9fff4;--tag-color:#38a673;">可靠</span><span class="tag" style="--tag-bg:#f3edff;--tag-color:#8f67d8;">篮球</span></div>
+                </div>
+                <div class="metrics"><span class="metric">❤ 80</span><span class="metric" style="color:#5f8ee8;">🛡 75</span></div>
+              </div>
+              <div class="person-card">
+                <div class="avatar person">美</div>
+                <div>
+                  <div class="person-name">小美</div>
+                  <div class="meta">朋友 · 核心圈</div>
+                  <div class="tags"><span class="tag">同学</span><span class="tag" style="--tag-bg:#ffe9ef;--tag-color:#df6387;">知心</span></div>
+                </div>
+                <div class="metrics"><span class="metric">❤ 75</span><span class="metric" style="color:#5f8ee8;">🛡 70</span></div>
+              </div>
+              <div class="person-card">
+                <div class="avatar person">妈</div>
+                <div>
+                  <div class="person-name">妈妈</div>
+                  <div class="meta">家人 · 核心圈</div>
+                  <div class="tags"><span class="tag" style="--tag-bg:#fff1df;--tag-color:#d67b20;">家人</span><span class="tag" style="--tag-bg:#e9fff4;--tag-color:#38a673;">支持</span></div>
+                </div>
+                <div class="metrics"><span class="metric">❤ 95</span><span class="metric" style="color:#5f8ee8;">🛡 90</span></div>
+              </div>
+              <div class="person-card">
+                <div class="avatar person">红</div>
+                <div>
+                  <div class="person-name">小红</div>
+                  <div class="meta">同事 · 普通圈</div>
+                  <div class="tags"><span class="tag" style="--tag-bg:#e9f2ff;--tag-color:#477ed5;">同事</span><span class="tag" style="--tag-bg:#fff5db;--tag-color:#c58121;">项目</span></div>
+                </div>
+                <div class="metrics"><span class="metric">❤ 70</span><span class="metric" style="color:#5f8ee8;">🛡 60</span></div>
+              </div>
+            </div>
+          </div>
+          <nav class="bottom-nav" aria-label="底部导航">
+            <div class="tab"><span class="tab-inner"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v6m0 0-5 5m5-5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="4" r="2" stroke="currentColor" stroke-width="2"/><circle cx="6" cy="18" r="2" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="18" r="2" stroke="currentColor" stroke-width="2"/></svg>图谱</span></div>
+            <div class="tab active"><span class="tab-inner"><svg viewBox="0 0 24 24" fill="none"><path d="M16 19c0-2.2-1.8-4-4-4s-4 1.8-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="8" r="3" stroke="currentColor" stroke-width="2"/><path d="M20 19c0-1.7-1-3.1-2.4-3.7M17 5.4a3 3 0 0 1 0 5.2M4 19c0-1.7 1-3.1 2.4-3.7M7 5.4a3 3 0 0 0 0 5.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>人物</span></div>
+            <div class="tab"><span class="tab-inner"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="4" width="14" height="16" rx="3" stroke="currentColor" stroke-width="2"/><path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>事件</span></div>
+            <div class="tab"><span class="tab-inner"><svg viewBox="0 0 24 24" fill="none"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" stroke="currentColor" stroke-width="2"/><path d="M19 13.5v-3l-2.1-.4a7 7 0 0 0-.7-1.6l1.2-1.8-2.1-2.1-1.8 1.2c-.5-.3-1-.5-1.6-.7L11.5 3h-3l-.4 2.1c-.6.2-1.1.4-1.6.7L4.7 4.6 2.6 6.7l1.2 1.8c-.3.5-.5 1-.7 1.6L1 10.5v3l2.1.4c.2.6.4 1.1.7 1.6l-1.2 1.8 2.1 2.1 1.8-1.2c.5.3 1 .5 1.6.7l.4 2.1h3l.4-2.1c.6-.2 1.1-.4 1.6-.7l1.8 1.2 2.1-2.1-1.2-1.8c.3-.5.5-1 .7-1.6l2.1-.4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>设置</span></div>
+          </nav>
+        </article>
+
+        <article class="phone" aria-label="事件页">
+          <div class="status-bar">
+            <span>9:41</span>
+            <div class="status-icons">
+              <div class="signal" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+              <svg class="wifi" viewBox="0 0 18 14" aria-hidden="true"><path d="M2 5.4C6.2 1.8 11.8 1.8 16 5.4" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/><path d="M5.2 8.4c2.3-1.9 5.3-1.9 7.6 0" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="11.5" r="1.3" fill="#111"/></svg>
+              <div class="battery" aria-hidden="true"></div>
+            </div>
+          </div>
+          <header class="page-head">
+            <h1>事件</h1>
+            <div class="primary-btn"><span style="font-size:20px; line-height:1;">+</span>记录事件</div>
+          </header>
+          <div class="event-filters">
+            <div class="select-pill">全部人物 <span>⌄</span></div>
+            <div class="select-pill">全部类型 <span>⌄</span></div>
+          </div>
+          <div class="content" style="height: calc(100% - 42px - 58px - 60px - 82px);">
+            <div class="timeline">
+              <div class="event-row" style="--dot:#5db98b;">
+                <span class="dot"></span>
+                <div class="event-date">01/15<span>周一</span></div>
+                <div class="event-card">
+                  <div class="event-title-row"><div class="event-title">一起打篮球</div><span class="mood">积极</span></div>
+                  <div class="event-person">小明 · 运动陪伴 · 2026/01/15</div>
+                  <p class="event-note">一起打篮球，配合越来越默契，约好下周继续。</p>
+                  <div class="impact"><span>❤️ 亲密度 +10</span><span>🛡 信任度 +5</span></div>
+                </div>
+              </div>
+              <div class="event-row" style="--dot:#5f8ee8;">
+                <span class="dot"></span>
+                <div class="event-date">01/14<span>周日</span></div>
+                <div class="event-card">
+                  <div class="event-title-row"><div class="event-title">家庭聚餐</div><span class="mood">积极</span></div>
+                  <div class="event-person">妈妈 · 家庭日常 · 2026/01/14</div>
+                  <p class="event-note">一起吃饭聊天，感觉被理解，也聊了最近的压力。</p>
+                  <div class="impact"><span>❤️ 亲密度 +10</span><span>🛡 信任度 +5</span></div>
+                </div>
+              </div>
+              <div class="event-row" style="--dot:#8f67d8;">
+                <span class="dot"></span>
+                <div class="event-date">01/10<span>周三</span></div>
+                <div class="event-card">
+                  <div class="event-title-row"><div class="event-title">深夜聊天</div><span class="mood" style="--mood-bg:#f2ebff;--mood-color:#8f67d8;">中性</span></div>
+                  <div class="event-person">小美 · 情绪交流 · 2026/01/10</div>
+                  <p class="event-note">聊了很久，分享了很多想法，暂时不调整关系数值。</p>
+                  <div class="no-impact">本次事件不影响关系数值</div>
+                </div>
+              </div>
+              <div class="event-row" style="--dot:#ef7193;">
+                <span class="dot"></span>
+                <div class="event-date">01/05<span>周五</span></div>
+                <div class="event-card">
+                  <div class="event-title-row"><div class="event-title">帮我搬家</div><span class="mood">积极</span></div>
+                  <div class="event-person">阿强 · 实际支持 · 2026/01/05</div>
+                  <p class="event-note">主动帮我搬家，非常感谢，关系变得更可靠。</p>
+                  <div class="impact"><span>❤️ 亲密度 +10</span><span>🛡 信任度 +5</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <nav class="bottom-nav" aria-label="底部导航">
+            <div class="tab"><span class="tab-inner"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v6m0 0-5 5m5-5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="4" r="2" stroke="currentColor" stroke-width="2"/><circle cx="6" cy="18" r="2" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="18" r="2" stroke="currentColor" stroke-width="2"/></svg>图谱</span></div>
+            <div class="tab"><span class="tab-inner"><svg viewBox="0 0 24 24" fill="none"><path d="M16 19c0-2.2-1.8-4-4-4s-4 1.8-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="8" r="3" stroke="currentColor" stroke-width="2"/><path d="M20 19c0-1.7-1-3.1-2.4-3.7M17 5.4a3 3 0 0 1 0 5.2M4 19c0-1.7 1-3.1 2.4-3.7M7 5.4a3 3 0 0 0 0 5.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>人物</span></div>
+            <div class="tab active"><span class="tab-inner"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="4" width="14" height="16" rx="3" stroke="currentColor" stroke-width="2"/><path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>事件</span></div>
+            <div class="tab"><span class="tab-inner"><svg viewBox="0 0 24 24" fill="none"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" stroke="currentColor" stroke-width="2"/><path d="M19 13.5v-3l-2.1-.4a7 7 0 0 0-.7-1.6l1.2-1.8-2.1-2.1-1.8 1.2c-.5-.3-1-.5-1.6-.7L11.5 3h-3l-.4 2.1c-.6.2-1.1.4-1.6.7L4.7 4.6 2.6 6.7l1.2 1.8c-.3.5-.5 1-.7 1.6L1 10.5v3l2.1.4c.2.6.4 1.1.7 1.6l-1.2 1.8 2.1 2.1 1.8-1.2c.5.3 1 .5 1.6.7l.4 2.1h3l.4-2.1c.6-.2 1.1-.4 1.6-.7l1.8 1.2 2.1-2.1-1.2-1.8c.3-.5.5-1 .7-1.6l2.1-.4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>设置</span></div>
+          </nav>
+        </article>
+
+        <article class="phone" aria-label="设置页">
+          <div class="status-bar">
+            <span>9:41</span>
+            <div class="status-icons">
+              <div class="signal" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+              <svg class="wifi" viewBox="0 0 18 14" aria-hidden="true"><path d="M2 5.4C6.2 1.8 11.8 1.8 16 5.4" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/><path d="M5.2 8.4c2.3-1.9 5.3-1.9 7.6 0" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="11.5" r="1.3" fill="#111"/></svg>
+              <div class="battery" aria-hidden="true"></div>
+            </div>
+          </div>
+          <header class="page-head">
+            <h1>设置</h1>
+          </header>
+          <div class="content">
+            <div class="settings-list">
+              <section class="setting-card">
+                <div class="setting-heading"><span class="badge-icon">◇</span>数据备份与恢复</div>
+                <p class="setting-desc">数据仅保存在当前设备本地。更换设备、清理浏览器缓存或删除网站数据，可能导致数据丢失。建议定期导出 JSON 备份。</p>
+                <div class="action-list">
+                  <div class="backup-action" style="--action-bg:#f2f7ff;--action-line:#cfe0ff;--action-color:#4e82da;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 3v10m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    <div><strong>导出 JSON 备份</strong><span>下载当前所有数据</span></div>
+                  </div>
+                  <div class="backup-action" style="--action-bg:#f1fff8;--action-line:#c9ecd9;--action-color:#43a777;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 21V11m0 0 4 4m-4-4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M5 10V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    <div><strong>导入 JSON 备份</strong><span>从备份文件恢复数据</span></div>
+                  </div>
+                  <div class="backup-action" style="--action-bg:#fff2f5;--action-line:#ffd0db;--action-color:#e25f80;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 8v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 17h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M10.3 4.5 2.8 18a2 2 0 0 0 1.7 3h15a2 2 0 0 0 1.7-3L13.7 4.5a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                    <div><strong>清空本地数据</strong><span>删除所有本地数据，不可恢复</span></div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="setting-card">
+                <div class="setting-heading"><span class="badge-icon">#</span>标签管理</div>
+                <p class="setting-desc">维护人物与事件常用标签，例如“工作相关”“家人”“同学”“可靠”。标签用于筛选和形成更细腻的关系记录。</p>
+                <div class="chips" style="padding:0; flex-wrap:wrap;">
+                  <span class="chip active">工作相关</span>
+                  <span class="chip">家人</span>
+                  <span class="chip">同学</span>
+                  <span class="chip">可靠</span>
+                </div>
+              </section>
+
+              <section class="setting-card">
+                <div class="setting-heading"><span class="badge-icon">⌂</span>添加到主屏幕</div>
+                <div class="install-row">
+                  <div>
+                    <h3>在 iPhone / Safari 上</h3>
+                    <ol>
+                      <li>点击底部“分享”按钮</li>
+                      <li>选择“添加到主屏幕”</li>
+                      <li>回到桌面即可像 App 一样打开</li>
+                    </ol>
+                  </div>
+                  <div class="mini-phone"><div class="mini-nav"><span></span><span></span><span></span></div></div>
+                </div>
+                <div class="install-row">
+                  <div>
+                    <h3>在 Android / Chrome 上</h3>
+                    <ol>
+                      <li>点击右上角菜单按钮</li>
+                      <li>选择“安装应用”或“添加到主屏幕”</li>
+                      <li>回到桌面即可快速打开</li>
+                    </ol>
+                  </div>
+                  <div class="mini-phone"><div class="mini-nav"><span></span><span></span><span></span></div></div>
+                </div>
+              </section>
+
+              <section class="setting-card">
+                <div class="setting-heading"><span class="badge-icon">◎</span>隐私与本地存储说明</div>
+                <div class="privacy-note">本应用参考稿强调“私密手账感”：关系、事件和备注默认保存在本地设备，不上传云端。正式实现中应继续保持清晰的备份、导入和清空入口。</div>
+              </section>
+            </div>
+          </div>
+          <nav class="bottom-nav" aria-label="底部导航">
+            <div class="tab"><span class="tab-inner"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v6m0 0-5 5m5-5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="4" r="2" stroke="currentColor" stroke-width="2"/><circle cx="6" cy="18" r="2" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="18" r="2" stroke="currentColor" stroke-width="2"/></svg>图谱</span></div>
+            <div class="tab"><span class="tab-inner"><svg viewBox="0 0 24 24" fill="none"><path d="M16 19c0-2.2-1.8-4-4-4s-4 1.8-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="8" r="3" stroke="currentColor" stroke-width="2"/><path d="M20 19c0-1.7-1-3.1-2.4-3.7M17 5.4a3 3 0 0 1 0 5.2M4 19c0-1.7 1-3.1 2.4-3.7M7 5.4a3 3 0 0 0 0 5.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>人物</span></div>
+            <div class="tab"><span class="tab-inner"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="4" width="14" height="16" rx="3" stroke="currentColor" stroke-width="2"/><path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>事件</span></div>
+            <div class="tab active"><span class="tab-inner"><svg viewBox="0 0 24 24" fill="none"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" stroke="currentColor" stroke-width="2"/><path d="M19 13.5v-3l-2.1-.4a7 7 0 0 0-.7-1.6l1.2-1.8-2.1-2.1-1.8 1.2c-.5-.3-1-.5-1.6-.7L11.5 3h-3l-.4 2.1c-.6.2-1.1.4-1.6.7L4.7 4.6 2.6 6.7l1.2 1.8c-.3.5-.5 1-.7 1.6L1 10.5v3l2.1.4c.2.6.4 1.1.7 1.6l-1.2 1.8 2.1 2.1 1.8-1.2c.5.3 1 .5 1.6.7l.4 2.1h3l.4-2.1c.6-.2 1.1-.4 1.6-.7l1.8 1.2 2.1-2.1-1.2-1.8c.3-.5.5-1 .7-1.6l2.1-.4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>设置</span></div>
+          </nav>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

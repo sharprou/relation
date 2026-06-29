@@ -1,10 +1,12 @@
 import type { Person } from '../types'
+import { cleanVisibleTags, displayCircle } from './display'
 
 export interface PeopleFilters {
   relationType: string
   circle: string
   status: string
   tag: string
+  minIntimacy: string
 }
 
 export const EMPTY_PEOPLE_FILTERS: PeopleFilters = {
@@ -12,6 +14,7 @@ export const EMPTY_PEOPLE_FILTERS: PeopleFilters = {
   circle: '',
   status: '',
   tag: '',
+  minIntimacy: '',
 }
 
 function normalize(value: string): string {
@@ -19,7 +22,7 @@ function normalize(value: string): string {
 }
 
 export function hasActivePeopleFilters(filters: PeopleFilters): boolean {
-  return Boolean(filters.relationType || filters.circle || filters.status || filters.tag)
+  return Boolean(filters.relationType || filters.circle || filters.status || filters.tag || filters.minIntimacy)
 }
 
 export function filterPeopleByKeyword(people: Person[], keyword: string): Person[] {
@@ -34,10 +37,10 @@ export function filterPeopleByKeyword(people: Person[], keyword: string): Person
       person.name,
       person.nickname ?? '',
       person.relationType,
-      person.circle,
+      displayCircle(person.circle),
       person.status,
       person.note ?? '',
-      ...person.tags,
+      ...cleanVisibleTags(person.tags),
     ]
 
     return searchable.some((value) => normalize(value).includes(normalizedKeyword))
@@ -47,9 +50,10 @@ export function filterPeopleByKeyword(people: Person[], keyword: string): Person
 export function filterPeopleByFilters(people: Person[], filters: PeopleFilters): Person[] {
   return people.filter((person) => {
     if (filters.relationType && person.relationType !== filters.relationType) return false
-    if (filters.circle && person.circle !== filters.circle) return false
+    if (filters.circle && displayCircle(person.circle) !== filters.circle) return false
     if (filters.status && person.status !== filters.status) return false
-    if (filters.tag && !person.tags.includes(filters.tag)) return false
+    if (filters.tag && !cleanVisibleTags(person.tags).includes(filters.tag)) return false
+    if (filters.minIntimacy && person.intimacy < Number(filters.minIntimacy)) return false
     return true
   })
 }

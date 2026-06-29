@@ -6,7 +6,7 @@ import { clearAllLocalData, downloadBackupFile, importBackup, validateBackupData
 import { addTag, deleteTag, listTags, updateTag, type TagFormInput } from '../features/tags/tagService'
 import type { BackupData, TagItem } from '../types'
 
-const TAG_COLOR_PRESETS = ['#dce8e2', '#9bb8a7', '#8fb7c7', '#e8b7bd', '#d8a48f', '#e4c96f']
+const TAG_COLOR_PRESETS = ['#f1e9ff', '#dff6eb', '#e5efff', '#ffe6ee', '#fff0d8', '#edf0fb']
 
 type BackupConfirmAction = 'import' | 'clear' | null
 
@@ -168,45 +168,45 @@ export default function SettingsPage() {
       description="管理本地配置、标签和数据安全。所有数据仅保存在当前设备的 IndexedDB 中。"
     >
       <div className="space-y-4">
-        <section className="rounded-[1.5rem] bg-white/75 p-4 shadow-soft ring-1 ring-white">
+        <section className="rounded-[1.5rem] bg-white/88 p-4 shadow-soft ring-1 ring-violet/10">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.16em] text-clay">Backup</p>
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-violet">Backup</p>
               <h2 className="mt-1 text-lg font-semibold text-ink">数据备份与恢复</h2>
               <p className="mt-1 text-sm leading-6 text-ink/60">
                 数据仅保存在当前设备本地。更换设备、清理浏览器缓存或删除网站数据可能导致数据丢失，建议定期导出 JSON 备份。
               </p>
             </div>
-            <ShieldAlert className="mt-1 h-5 w-5 shrink-0 text-clay" aria-hidden="true" />
+            <ShieldAlert className="mt-1 h-5 w-5 shrink-0 text-lake" aria-hidden="true" />
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="mt-4 grid gap-3">
             <button
               type="button"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-clay px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
+              className="inline-flex items-center gap-3 rounded-2xl bg-lake/10 px-4 py-3 text-left text-sm font-medium text-ink ring-1 ring-lake/20 disabled:opacity-60"
               onClick={handleExportBackup}
               disabled={isBackupBusy}
             >
-              <Download className="h-4 w-4" aria-hidden="true" />
-              导出 JSON 备份
+              <Download className="h-5 w-5 text-lake" aria-hidden="true" />
+              <span><span className="block">导出 JSON 备份</span><span className="block text-xs font-normal text-ink/55">下载当前所有数据</span></span>
             </button>
             <button
               type="button"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-medium text-ink ring-1 ring-white disabled:opacity-60"
+              className="inline-flex items-center gap-3 rounded-2xl bg-sage/10 px-4 py-3 text-left text-sm font-medium text-ink ring-1 ring-sage/20 disabled:opacity-60"
               onClick={openImportPicker}
               disabled={isBackupBusy}
             >
-              <FileUp className="h-4 w-4" aria-hidden="true" />
-              导入 JSON 备份
+              <FileUp className="h-5 w-5 text-sage" aria-hidden="true" />
+              <span><span className="block">导入 JSON 备份</span><span className="block text-xs font-normal text-ink/55">从备份文件恢复数据</span></span>
             </button>
             <button
               type="button"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-rose/45 px-4 py-3 text-sm font-medium text-ink disabled:opacity-60"
+              className="inline-flex items-center gap-3 rounded-2xl bg-rose/10 px-4 py-3 text-left text-sm font-medium text-rose ring-1 ring-rose/25 disabled:opacity-60"
               onClick={() => setBackupConfirmAction('clear')}
               disabled={isBackupBusy}
             >
-              <Trash2 className="h-4 w-4" aria-hidden="true" />
-              清空本地数据
+              <Trash2 className="h-5 w-5" aria-hidden="true" />
+              <span><span className="block">清空本地数据</span><span className="block text-xs font-normal text-rose/70">删除所有本地数据，不可恢复</span></span>
             </button>
           </div>
 
@@ -215,14 +215,14 @@ export default function SettingsPage() {
           {backupMessage ? <p className="mt-3 rounded-2xl bg-paper px-4 py-3 text-sm leading-6 text-ink/70">{backupMessage}</p> : null}
         </section>
 
-        <section className="rounded-[1.5rem] bg-white/75 p-4 shadow-soft ring-1 ring-white">
+        <section className="rounded-[1.5rem] bg-white/88 p-4 shadow-soft ring-1 ring-violet/10">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.16em] text-clay">Tags</p>
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-violet">Tags</p>
               <h2 className="mt-1 text-lg font-semibold text-ink">标签管理</h2>
               <p className="mt-1 text-sm leading-6 text-ink/60">标签会写入人物资料，可用于人物页和图谱页筛选。</p>
             </div>
-            <button type="button" className="shrink-0 rounded-2xl bg-clay px-4 py-2 text-sm font-medium text-white" onClick={resetForm}>
+            <button type="button" className="shrink-0 rounded-2xl bg-violet px-4 py-2 text-sm font-medium text-white" onClick={resetForm}>
               新增标签
             </button>
           </div>
@@ -231,7 +231,7 @@ export default function SettingsPage() {
             <label className="grid gap-2">
               <span className="text-sm font-medium text-ink">标签名称</span>
               <input
-                className="rounded-2xl border border-white bg-paper px-4 py-3 text-sm outline-none"
+                className="rounded-2xl border border-violet/10 bg-paper px-4 py-3 text-sm outline-none focus:border-violet/35"
                 value={tagForm.name}
                 onChange={(event) => setTagForm((current) => ({ ...current, name: event.target.value }))}
                 placeholder="例如：可靠"
@@ -245,7 +245,7 @@ export default function SettingsPage() {
                   <button
                     key={color}
                     type="button"
-                    className={`h-9 w-9 rounded-full ring-2 ${tagForm.color === color ? 'ring-ink/50' : 'ring-white'}`}
+                    className={`h-9 w-9 rounded-full ring-2 ${tagForm.color === color ? 'ring-violet/55' : 'ring-white'}`}
                     style={{ backgroundColor: color }}
                     title={color}
                     onClick={() => setTagForm((current) => ({ ...current, color }))}
@@ -258,18 +258,18 @@ export default function SettingsPage() {
 
             <div className="flex gap-3">
               {editingTagId ? (
-                <button type="button" className="flex-1 rounded-2xl bg-white px-4 py-3 text-sm font-medium text-ink ring-1 ring-white" onClick={resetForm}>
+                <button type="button" className="flex-1 rounded-2xl bg-white px-4 py-3 text-sm font-medium text-ink ring-1 ring-violet/10" onClick={resetForm}>
                   取消编辑
                 </button>
               ) : null}
-              <button type="button" className="flex-1 rounded-2xl bg-clay px-4 py-3 text-sm font-medium text-white" onClick={submitTag}>
+              <button type="button" className="flex-1 rounded-2xl bg-violet px-4 py-3 text-sm font-medium text-white" onClick={submitTag}>
                 {editingTagId ? '保存标签' : '新增标签'}
               </button>
             </div>
           </div>
         </section>
 
-        <section className="rounded-[1.5rem] bg-white/75 p-4 shadow-soft ring-1 ring-white">
+        <section className="rounded-[1.5rem] bg-white/88 p-4 shadow-soft ring-1 ring-violet/10">
           <h2 className="text-base font-semibold text-ink">已有标签</h2>
           {tags.length > 0 ? (
             <div className="mt-3 space-y-3">
@@ -283,10 +283,10 @@ export default function SettingsPage() {
                     </div>
                   </div>
                   <div className="flex shrink-0 gap-2">
-                    <button type="button" className="rounded-full bg-white px-3 py-1.5 text-xs font-medium text-ink" onClick={() => startEditTag(tag)}>
+                    <button type="button" className="rounded-full bg-white px-3 py-1.5 text-xs font-medium text-ink ring-1 ring-violet/10" onClick={() => startEditTag(tag)}>
                       编辑
                     </button>
-                    <button type="button" className="rounded-full bg-rose/40 px-3 py-1.5 text-xs font-medium text-ink" onClick={() => setDeleteTarget(tag)}>
+                    <button type="button" className="rounded-full bg-rose/10 px-3 py-1.5 text-xs font-medium text-rose" onClick={() => setDeleteTarget(tag)}>
                       删除
                     </button>
                   </div>
@@ -298,16 +298,16 @@ export default function SettingsPage() {
           )}
         </section>
 
-        <section className="rounded-[1.5rem] bg-white/75 p-4 shadow-soft ring-1 ring-white">
+        <section className="rounded-[1.5rem] bg-white/88 p-4 shadow-soft ring-1 ring-violet/10">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.16em] text-clay">Install</p>
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-violet">Install</p>
               <h2 className="mt-1 text-lg font-semibold text-ink">添加到主屏幕</h2>
               <p className="mt-1 text-sm leading-6 text-ink/60">
                 本应用数据保存在当前设备本地。添加到主屏幕后，数据仍然只保存在本机，不会上传到服务器。
               </p>
             </div>
-            <Smartphone className="mt-1 h-5 w-5 shrink-0 text-clay" aria-hidden="true" />
+            <Smartphone className="mt-1 h-5 w-5 shrink-0 text-violet" aria-hidden="true" />
           </div>
 
           <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -329,6 +329,16 @@ export default function SettingsPage() {
                 <li>回到桌面后，可以像 App 一样打开“关系图谱”。</li>
               </ol>
             </div>
+          </div>
+        </section>
+
+        <section className="rounded-[1.5rem] bg-white/88 p-4 shadow-soft ring-1 ring-violet/10">
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-violet">Privacy</p>
+          <h2 className="mt-1 text-lg font-semibold text-ink">隐私与本地存储说明</h2>
+          <div className="mt-3 space-y-2 text-sm leading-6 text-ink/68">
+            <p>数据仅保存在当前设备本地，不会上传到服务器。</p>
+            <p>清理浏览器数据、删除站点数据或更换设备，可能导致数据丢失。</p>
+            <p>建议定期导出 JSON 备份，头像 dataURL 会随人物数据一起备份。</p>
           </div>
         </section>
 

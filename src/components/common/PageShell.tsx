@@ -9,11 +9,11 @@ interface PageShellProps {
 
 export default function PageShell({ eyebrow, title, description, children }: PageShellProps) {
   return (
-    <section className="space-y-5">
-      <header className="rounded-[1.5rem] bg-white/72 p-5 shadow-soft ring-1 ring-white">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-clay">{eyebrow}</p>
-        <h1 className="mt-2 text-2xl font-semibold text-ink">{title}</h1>
-        <p className="mt-2 text-sm leading-6 text-ink/68">{description}</p>
+    <section className="space-y-4">
+      <header className="px-0 pb-1 pt-2">
+        <p className="sr-only">{eyebrow}</p>
+        <h1 className="text-2xl font-extrabold leading-tight tracking-[-0.02em] text-[#151321]">{title}</h1>
+        <p className="sr-only">{description}</p>
       </header>
       {children}
     </section>

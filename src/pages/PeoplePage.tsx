@@ -10,6 +10,8 @@ import { addPerson, deletePerson, getPersonById, listPeople, updatePerson } from
 import { getRelationshipByPersonId } from '../features/relationships/relationshipService'
 import { listTags } from '../features/tags/tagService'
 import type { InteractionEvent, Person, Relationship, TagItem } from '../types'
+import PersonAvatar from '../components/common/PersonAvatar'
+import { cleanFilterOptions, cleanVisibleTags, displayCircle, displayOptionLabel } from '../utils/display'
 import {
   EMPTY_PEOPLE_FILTERS,
   filterPeopleByFilters,
@@ -97,10 +99,10 @@ export default function PeoplePage() {
   )
 
   const filterOptions = useMemo(() => ({
-    relationTypes: getUniqueOptions(regularPeople.map((person) => person.relationType)),
-    circles: getUniqueOptions(regularPeople.map((person) => person.circle)),
-    statuses: getUniqueOptions(regularPeople.map((person) => person.status)),
-    tags: getUniqueOptions([...tags.map((tag) => tag.name), ...regularPeople.flatMap((person) => person.tags)]),
+    relationTypes: getUniqueOptions(cleanFilterOptions(regularPeople.map((person) => person.relationType))),
+    circles: getUniqueOptions(cleanFilterOptions(regularPeople.map((person) => displayCircle(person.circle)))),
+    statuses: getUniqueOptions(cleanFilterOptions(regularPeople.map((person) => person.status))),
+    tags: getUniqueOptions(cleanFilterOptions([...tags.map((tag) => tag.name), ...regularPeople.flatMap((person) => cleanVisibleTags(person.tags))])),
   }), [regularPeople, tags])
 
   const hasSearchOrFilters = Boolean(keyword.trim()) || hasActivePeopleFilters(filters)
@@ -192,13 +194,13 @@ export default function PeoplePage() {
     >
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-ink/60">本地人物数据</p>
-          <button type="button" className="rounded-2xl bg-clay px-4 py-2 text-sm font-medium text-white shadow-soft" onClick={openCreate}>
-            新增人物
+          <p className="text-sm font-semibold text-ink/55">共 {regularPeople.length} 位普通人物</p>
+          <button type="button" className="rounded-2xl bg-violet px-4 py-2 text-sm font-bold text-white shadow-soft" onClick={openCreate}>
+            + 添加
           </button>
         </div>
 
-        {error ? <div className="rounded-2xl bg-white/80 px-4 py-3 text-sm text-rose-700 shadow-soft ring-1 ring-white">{error}</div> : null}
+        {error ? <div className="rounded-2xl bg-white/90 px-4 py-3 text-sm text-rose-700 shadow-soft ring-1 ring-violet/10">{error}</div> : null}
 
         {mode === 'create' ? (
           <PersonForm submitLabel="保存人物" onCancel={cancelCreateOrEdit} onSubmit={submitCreate} />
@@ -215,33 +217,33 @@ export default function PeoplePage() {
         ) : null}
 
         {mode === 'list' && !selectedPerson ? (
-          <div className="space-y-3 rounded-[1.35rem] bg-white/70 p-4 shadow-soft ring-1 ring-white">
+          <div className="space-y-3">
             <input
-              className="w-full rounded-2xl border border-white bg-paper px-4 py-3 text-sm outline-none"
+              className="w-full rounded-[1.1rem] border border-violet/10 bg-white/76 px-4 py-3 text-sm font-semibold outline-none shadow-soft placeholder:text-ink/35 focus:border-violet/35"
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
               placeholder="搜索姓名、昵称、关系、状态、标签或备注"
             />
             <div className="grid gap-2 sm:grid-cols-2">
-              <select className="rounded-2xl border border-white bg-paper px-3 py-2 text-sm outline-none" value={filters.relationType} onChange={(event) => setFilter('relationType', event.target.value)}>
+              <select className="rounded-2xl border border-violet/10 bg-white/76 px-3 py-2.5 text-sm font-semibold text-ink/70 outline-none" value={filters.relationType} onChange={(event) => setFilter('relationType', event.target.value)}>
                 <option value="">全部关系类型</option>
                 {filterOptions.relationTypes.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
-              <select className="rounded-2xl border border-white bg-paper px-3 py-2 text-sm outline-none" value={filters.circle} onChange={(event) => setFilter('circle', event.target.value)}>
+              <select className="rounded-2xl border border-violet/10 bg-white/76 px-3 py-2.5 text-sm font-semibold text-ink/70 outline-none" value={filters.circle} onChange={(event) => setFilter('circle', event.target.value)}>
                 <option value="">全部圈层</option>
-                {filterOptions.circles.map((item) => <option key={item} value={item}>{item}</option>)}
+                {filterOptions.circles.map((item) => <option key={item} value={item}>{displayOptionLabel(item)}</option>)}
               </select>
-              <select className="rounded-2xl border border-white bg-paper px-3 py-2 text-sm outline-none" value={filters.status} onChange={(event) => setFilter('status', event.target.value)}>
+              <select className="rounded-2xl border border-violet/10 bg-white/76 px-3 py-2.5 text-sm font-semibold text-ink/70 outline-none" value={filters.status} onChange={(event) => setFilter('status', event.target.value)}>
                 <option value="">全部状态</option>
                 {filterOptions.statuses.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
-              <select className="rounded-2xl border border-white bg-paper px-3 py-2 text-sm outline-none" value={filters.tag} onChange={(event) => setFilter('tag', event.target.value)}>
+              <select className="rounded-2xl border border-violet/10 bg-white/76 px-3 py-2.5 text-sm font-semibold text-ink/70 outline-none" value={filters.tag} onChange={(event) => setFilter('tag', event.target.value)}>
                 <option value="">全部标签</option>
                 {filterOptions.tags.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </div>
             {hasSearchOrFilters ? (
-              <button type="button" className="rounded-2xl bg-white px-4 py-2 text-sm font-medium text-ink ring-1 ring-white" onClick={clearFilters}>
+              <button type="button" className="rounded-2xl bg-violetMist px-4 py-2 text-sm font-bold text-violet ring-1 ring-violet/10" onClick={clearFilters}>
                 清空筛选
               </button>
             ) : null}
@@ -249,16 +251,19 @@ export default function PeoplePage() {
         ) : null}
 
         {!selectedPerson && selfPerson ? (
-          <div className="rounded-[1.35rem] bg-mist/75 p-4 shadow-soft ring-1 ring-white">
+          <div className="rounded-[1.35rem] bg-violetMist/75 p-4 shadow-soft ring-1 ring-violet/10">
             <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-[0.16em] text-clay">我的资料</p>
+              <div className="flex min-w-0 items-center gap-3">
+                <PersonAvatar name={selfPerson.name} avatar={selfPerson.avatar} seed={selfPerson.circle} className="h-12 w-12 text-lg" />
+                <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-[0.16em] text-violet">我的资料</p>
                 <p className="mt-1 text-lg font-semibold text-ink">{selfPerson.name}</p>
                 <p className="mt-1 text-sm text-ink/60">
-                  {selfPerson.relationType} · {selfPerson.circle}
+                  {selfPerson.relationType} · {displayCircle(selfPerson.circle)}
                 </p>
+                </div>
               </div>
-              <button type="button" className="rounded-2xl bg-white px-4 py-2 text-sm font-medium text-ink shadow-soft" onClick={() => loadPersonDetail(selfPerson.id)}>
+              <button type="button" className="shrink-0 rounded-2xl bg-white px-4 py-2 text-sm font-bold text-ink shadow-soft ring-1 ring-violet/10" onClick={() => loadPersonDetail(selfPerson.id)}>
                 查看
               </button>
             </div>
@@ -271,7 +276,7 @@ export default function PeoplePage() {
 
         {mode === 'list' && !selectedPerson && visiblePeople.length > 0 ? (
           <div className="space-y-3">
-            <p className="text-sm font-medium text-ink/65">普通人物</p>
+            <p className="text-sm font-bold text-ink/55">普通人物</p>
             <div className="grid gap-3">
               {visiblePeople.map((person) => (
                 <PersonCard key={person.id} person={person} onOpen={openDetail} />
@@ -281,11 +286,11 @@ export default function PeoplePage() {
         ) : null}
 
         {mode === 'list' && !loading && regularPeople.length === 0 ? (
-          <div className="rounded-[1.5rem] bg-white/78 p-6 text-center shadow-soft ring-1 ring-white">
+          <div className="rounded-[1.5rem] bg-white/88 p-6 text-center shadow-soft ring-1 ring-violet/10">
             <p className="text-base font-medium text-ink">你的人物关系图谱还是空的。</p>
             <p className="mt-2 text-sm leading-6 text-ink/60">先添加第一个人物吧。</p>
             <div className="mt-4">
-              <button type="button" className="rounded-2xl bg-clay px-4 py-3 text-sm font-medium text-white" onClick={openCreate}>
+              <button type="button" className="rounded-2xl bg-violet px-4 py-3 text-sm font-medium text-white" onClick={openCreate}>
                 添加人物
               </button>
             </div>
@@ -293,7 +298,7 @@ export default function PeoplePage() {
         ) : null}
 
         {mode === 'list' && !loading && regularPeople.length > 0 && visiblePeople.length === 0 ? (
-          <div className="rounded-[1.5rem] bg-white/78 p-6 text-center shadow-soft ring-1 ring-white">
+          <div className="rounded-[1.5rem] bg-white/88 p-6 text-center shadow-soft ring-1 ring-violet/10">
             <p className="text-base font-medium text-ink">没有找到相关人物。</p>
             <p className="mt-2 text-sm leading-6 text-ink/60">试试换个关键词，或清空筛选条件。</p>
           </div>

@@ -5,19 +5,23 @@ export default {
   theme: {
     extend: {
       colors: {
-        paper: '#f8f4ec',
-        ink: '#40362d',
-        mist: '#dce8e2',
-        clay: '#d8a48f',
-        sage: '#9bb8a7',
-        lake: '#8fb7c7',
-        rose: '#e8b7bd',
+        paper: '#fff7f8',
+        ink: '#252236',
+        mist: '#fff0f3',
+        clay: '#f08aa6',
+        sage: '#5db98b',
+        lake: '#5f8ee8',
+        rose: '#ef7193',
+        violet: '#f08aa6',
+        violetMist: '#ffe8ee',
       },
       boxShadow: {
-        soft: '0 18px 45px rgba(85, 69, 51, 0.12)',
+        soft: '0 16px 36px rgba(218, 116, 139, 0.12)',
+        lift: '0 22px 55px rgba(218, 116, 139, 0.15)',
+        avatar: '0 10px 24px rgba(239, 113, 147, 0.18)',
       },
       fontFamily: {
-        sans: ['"Noto Sans SC"', '"Microsoft YaHei"', 'sans-serif'],
+        sans: ['"Noto Sans SC"', '"PingFang SC"', '"Microsoft YaHei"', 'system-ui', 'sans-serif'],
       },
     },
   },
