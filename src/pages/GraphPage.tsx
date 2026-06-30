@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import GraphCanvas from '../features/graph/GraphCanvas'
 import { loadGraphData, type GraphData } from '../features/graph/graphService'
+import GraphMetricToggle from '../features/graph/GraphMetricToggle'
+import GraphPerspectiveSelector from '../features/graph/GraphPerspectiveSelector'
+import type { GraphLineMetric } from '../features/graph/graphStyle'
 import { listPeople } from '../features/people/peopleService'
 import { listTags } from '../features/tags/tagService'
 import type { Person, TagItem } from '../types'
@@ -19,6 +22,8 @@ export default function GraphPage() {
   const [allPeople, setAllPeople] = useState<Person[]>([])
   const [tags, setTags] = useState<TagItem[]>([])
   const [filters, setFilters] = useState<PeopleFilters>(EMPTY_PEOPLE_FILTERS)
+  const [centerPersonId, setCenterPersonId] = useState('')
+  const [lineMetric, setLineMetric] = useState<GraphLineMetric>('intimacy')
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -30,7 +35,7 @@ export default function GraphPage() {
       try {
         setLoading(true)
         const [nextGraphData, peopleRows, tagRows] = await Promise.all([
-          loadGraphData(filters),
+          loadGraphData({ filters, centerPersonId, lineMetric }),
           listPeople(),
           listTags(),
         ])
@@ -39,6 +44,9 @@ export default function GraphPage() {
           setGraphData(nextGraphData)
           setAllPeople(peopleRows)
           setTags(tagRows)
+          if (nextGraphData.centerPerson && nextGraphData.centerPerson.id !== centerPersonId) {
+            setCenterPersonId(nextGraphData.centerPerson.id)
+          }
         }
       } catch (err) {
         if (active) {
@@ -54,7 +62,7 @@ export default function GraphPage() {
     return () => {
       active = false
     }
-  }, [filters])
+  }, [filters, centerPersonId, lineMetric])
 
   const regularPeople = useMemo(() => allPeople.filter((person) => !person.isSelf), [allPeople])
   const filterOptions = useMemo(() => ({
@@ -64,8 +72,11 @@ export default function GraphPage() {
     tags: getUniqueOptions(cleanFilterOptions([...tags.map((tag) => tag.name), ...regularPeople.flatMap((person) => cleanVisibleTags(person.tags))])),
   }), [regularPeople, tags])
 
-  const hasPeople = Boolean(graphData && graphData.people.length > 0)
+  const hasGraphPeople = Boolean(graphData && graphData.people.length > 0)
   const hasFilters = hasActivePeopleFilters(filters)
+  const currentCenterLabel = graphData?.centerPerson?.isSelf
+    ? '我'
+    : graphData?.centerPerson?.name ?? '中心人物'
 
   const setFilter = (key: keyof PeopleFilters, value: string) => {
     setFilters((current) => ({ ...current, [key]: value }))
@@ -89,12 +100,12 @@ export default function GraphPage() {
     }))
   }
 
-  const emptyHint = !loading && graphData && !hasPeople
+  const emptyHint = !loading && graphData && !hasGraphPeople
     ? regularPeople.length === 0
       ? { text: '添加人物后，关系会从这里长出来', actionLabel: '添加人物', onAction: () => navigate('/people') }
       : hasFilters
-        ? { text: '当前筛选下暂时只有我', actionLabel: '清空筛选', onAction: clearFilters }
-        : undefined
+        ? { text: '当前筛选下暂时只有中心人物', actionLabel: '清空筛选', onAction: clearFilters }
+        : { text: `${currentCenterLabel} 暂时没有直接关联人物` }
     : undefined
 
   return (
@@ -122,7 +133,15 @@ export default function GraphPage() {
       </header>
 
       <div className="-mx-4 shrink-0 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex min-w-max gap-2">
+        <div className="flex min-w-max items-center gap-2">
+          {allPeople.length > 0 ? (
+            <GraphPerspectiveSelector
+              people={allPeople}
+              centerPersonId={graphData?.centerPerson?.id ?? centerPersonId}
+              onChange={setCenterPersonId}
+            />
+          ) : null}
+          <GraphMetricToggle value={lineMetric} onChange={setLineMetric} />
           <FilterChip active={!hasFilters} label="全部关系" onClick={clearFilters} />
           <FilterChip active={filters.circle === CORE_CIRCLE} label="核心圈" onClick={toggleCoreCircle} />
           <FilterChip active={filters.minIntimacy === MIN_INTIMACY} label="亲密度 60+" onClick={toggleMinIntimacy} />
@@ -162,6 +181,7 @@ export default function GraphPage() {
               className="h-full"
               nodes={graphData.nodes}
               edges={graphData.edges}
+              lineMetric={lineMetric}
               emptyHint={emptyHint}
               onPersonClick={(personId) => navigate(`/people/${personId}`)}
             />

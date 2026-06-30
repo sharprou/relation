@@ -4,16 +4,18 @@ import '@xyflow/react/dist/style.css'
 import { Crosshair } from 'lucide-react'
 import clsx from 'clsx'
 import PersonNode from './PersonNode'
-import SelfNode from './SelfNode'
+import CenterNode from './CenterNode'
+import { getRelationshipLegendItems, type GraphLineMetric } from './graphStyle'
 
 const nodeTypes = {
-  selfNode: SelfNode,
+  centerNode: CenterNode,
   personNode: PersonNode,
 }
 
 interface GraphCanvasProps {
   nodes: Node[]
   edges: Edge[]
+  lineMetric: GraphLineMetric
   onPersonClick: (personId: string) => void
   className?: string
   emptyHint?: {
@@ -23,9 +25,10 @@ interface GraphCanvasProps {
   }
 }
 
-export default function GraphCanvas({ nodes, edges, onPersonClick, className, emptyHint }: GraphCanvasProps) {
+export default function GraphCanvas({ nodes, edges, lineMetric, onPersonClick, className, emptyHint }: GraphCanvasProps) {
   const reactFlow = useReactFlow()
   const hasPersonNodes = nodes.some((node) => node.type === 'personNode')
+  const legendItems = getRelationshipLegendItems(lineMetric)
 
   const fitGraphView = (duration = 320) => {
     reactFlow.fitView({ padding: 0.22, duration, maxZoom: 1.12 })
@@ -84,30 +87,18 @@ export default function GraphCanvas({ nodes, edges, onPersonClick, className, em
           elementsSelectable={false}
           panOnScroll
           onNodeClick={(_, node) => {
-            if (node.type === 'personNode') onPersonClick(node.id)
+            if (node.type === 'personNode' || node.type === 'centerNode') onPersonClick(node.id)
           }}
         >
           <Background color="#f8dce4" gap={24} size={0.75} />
         </ReactFlow>
       </div>
-      <div className="pointer-events-none absolute bottom-3 left-3 z-10 w-[188px] rounded-[1.1rem] bg-white/88 px-3 py-2 text-[10px] font-bold text-ink/72 shadow-[0_14px_28px_rgba(218,116,139,0.10)] ring-1 ring-rose/10 backdrop-blur">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <p className="mb-1.5 text-[10px] font-black text-ink">亲密度</p>
-            <div className="space-y-1">
-              <LegendLine color="#f5a375" label="80-100" />
-              <LegendLine color="#ef8fae" label="60-80" />
-              <LegendLine color="#e8bfc8" label="40-60" />
-            </div>
-          </div>
-          <div>
-            <p className="mb-1.5 text-[10px] font-black text-ink">信任度</p>
-            <div className="space-y-1">
-              <LegendLine color="#8ab7f3" label="高" />
-              <LegendLine color="#f0a7ba" label="中" />
-              <LegendLine color="#d8cdd0" label="低" />
-            </div>
-          </div>
+      <div className="pointer-events-none absolute bottom-3 left-3 z-10 w-[158px] rounded-[1.1rem] bg-white/88 px-3 py-2 text-[10px] font-bold text-ink/72 shadow-[0_14px_28px_rgba(218,116,139,0.10)] ring-1 ring-rose/10 backdrop-blur">
+        <p className="mb-1.5 text-[10px] font-black text-ink">{lineMetric === 'trust' ? '信任度' : '亲密度'}</p>
+        <div className="space-y-1">
+          {legendItems.map((item) => (
+            <LegendLine key={item.label} color={item.color} label={item.label} />
+          ))}
         </div>
       </div>
     </div>
