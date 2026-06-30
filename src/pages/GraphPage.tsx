@@ -98,31 +98,31 @@ export default function GraphPage() {
     : undefined
 
   return (
-    <div className="space-y-4">
-      <header className="flex items-center justify-between gap-3 pt-1">
-        <h1 className="text-[28px] font-black tracking-[-0.03em] text-ink">关系图谱</h1>
+    <div className="-mt-1 flex h-[calc(100dvh-8rem)] min-h-0 flex-col gap-3 overflow-hidden">
+      <header className="flex shrink-0 items-center justify-between gap-3">
+        <h1 className="text-[26px] font-black tracking-[-0.03em] text-ink">关系图谱</h1>
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className="grid h-10 w-10 place-items-center rounded-full bg-white/90 text-ink shadow-[0_12px_24px_rgba(218,116,139,0.10)] ring-1 ring-rose/10"
+            className="grid h-9 w-9 place-items-center rounded-full bg-white/90 text-ink shadow-[0_12px_24px_rgba(218,116,139,0.10)] ring-1 ring-rose/10"
             onClick={() => navigate('/people')}
             aria-label="搜索人物"
           >
-            <Search className="h-5 w-5" aria-hidden="true" />
+            <Search className="h-[18px] w-[18px]" aria-hidden="true" />
           </button>
           <button
             type="button"
-            className={`grid h-10 w-10 place-items-center rounded-full shadow-[0_12px_24px_rgba(218,116,139,0.10)] ring-1 transition ${showAdvancedFilters ? 'bg-[#ffe5ec] text-rose ring-rose/20' : 'bg-white/90 text-ink ring-rose/10'}`}
+            className={`grid h-9 w-9 place-items-center rounded-full shadow-[0_12px_24px_rgba(218,116,139,0.10)] ring-1 transition ${showAdvancedFilters ? 'bg-[#ffe5ec] text-rose ring-rose/20' : 'bg-white/90 text-ink ring-rose/10'}`}
             onClick={() => setShowAdvancedFilters((current) => !current)}
             aria-label="筛选图谱"
           >
-            <SlidersHorizontal className="h-5 w-5" aria-hidden="true" />
+            <SlidersHorizontal className="h-[18px] w-[18px]" aria-hidden="true" />
           </button>
         </div>
       </header>
 
-      <div className="-mx-4 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex min-w-max gap-2.5">
+      <div className="-mx-4 shrink-0 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex min-w-max gap-2">
           <FilterChip active={!hasFilters} label="全部关系" onClick={clearFilters} />
           <FilterChip active={filters.circle === CORE_CIRCLE} label="核心圈" onClick={toggleCoreCircle} />
           <FilterChip active={filters.minIntimacy === MIN_INTIMACY} label="亲密度 60+" onClick={toggleMinIntimacy} />
@@ -131,7 +131,7 @@ export default function GraphPage() {
       </div>
 
       {showAdvancedFilters ? (
-        <div className="rounded-[1.35rem] bg-white/72 p-3 shadow-[0_14px_30px_rgba(218,116,139,0.10)] ring-1 ring-rose/10 backdrop-blur">
+        <div className="shrink-0 rounded-[1.2rem] bg-white/72 p-2.5 shadow-[0_14px_30px_rgba(218,116,139,0.10)] ring-1 ring-rose/10 backdrop-blur">
           <div className="grid grid-cols-2 gap-2">
             <select className="min-w-0 rounded-full border border-rose/10 bg-white/86 px-3 py-2 text-xs font-bold text-ink/68 outline-none focus:border-rose/30" value={filters.relationType} onChange={(event) => setFilter('relationType', event.target.value)}>
               <option value="">全部关系</option>
@@ -153,19 +153,22 @@ export default function GraphPage() {
         </div>
       ) : null}
 
-      {error ? <div className="rounded-2xl bg-white/90 px-4 py-3 text-sm text-rose-700 shadow-soft ring-1 ring-rose/10">{error}</div> : null}
+      {error ? <div className="shrink-0 rounded-2xl bg-white/90 px-4 py-2.5 text-sm text-rose-700 shadow-soft ring-1 ring-rose/10">{error}</div> : null}
 
       {graphData ? (
-        <ReactFlowProvider>
-          <GraphCanvas
-            nodes={graphData.nodes}
-            edges={graphData.edges}
-            emptyHint={emptyHint}
-            onPersonClick={(personId) => navigate(`/people/${personId}`)}
-          />
-        </ReactFlowProvider>
+        <div className="min-h-0 flex-1">
+          <ReactFlowProvider>
+            <GraphCanvas
+              className="h-full"
+              nodes={graphData.nodes}
+              edges={graphData.edges}
+              emptyHint={emptyHint}
+              onPersonClick={(personId) => navigate(`/people/${personId}`)}
+            />
+          </ReactFlowProvider>
+        </div>
       ) : (
-        <div className="grid h-[560px] place-items-center rounded-[1.9rem] bg-white/80 text-sm font-bold text-ink/50 shadow-soft ring-1 ring-rose/10">
+        <div className="grid min-h-0 flex-1 place-items-center rounded-[1.65rem] bg-white/80 text-sm font-bold text-ink/50 shadow-soft ring-1 ring-rose/10">
           正在准备关系图谱
         </div>
       )}
@@ -177,7 +180,7 @@ function FilterChip({ active, label, onClick }: { active: boolean; label: string
   return (
     <button
       type="button"
-      className={`rounded-full px-4 py-2.5 text-sm font-black shadow-[0_10px_22px_rgba(218,116,139,0.08)] ring-1 transition active:scale-[0.98] ${active ? 'bg-[#ffe3ec] text-rose ring-rose/20' : 'bg-white/90 text-ink/68 ring-rose/10'}`}
+      className={`rounded-full px-3.5 py-2 text-[13px] font-black shadow-[0_10px_22px_rgba(218,116,139,0.08)] ring-1 transition active:scale-[0.98] ${active ? 'bg-[#ffe3ec] text-rose ring-rose/20' : 'bg-white/90 text-ink/68 ring-rose/10'}`}
       onClick={onClick}
     >
       {label}
