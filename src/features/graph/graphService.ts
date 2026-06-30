@@ -2,7 +2,7 @@ import type { Edge, Node } from '@xyflow/react'
 import { db } from '../../db/database'
 import type { Person, Relationship } from '../../types'
 import { filterPeopleByFilters, type PeopleFilters } from '../../utils/filter'
-import { calculateCircularPosition, getHandlePairForPosition } from './graphLayout'
+import { calculateNetworkLayout, getHandlePairForPosition } from './graphLayout'
 import { getRelationshipEdgeStyle, type GraphLineMetric } from './graphStyle'
 
 export interface GraphData {
@@ -59,23 +59,18 @@ function createGraphEdge(
     target: relationship.targetPersonId,
     sourceHandle: handlePair?.selfHandle,
     targetHandle: handlePair?.personHandle,
-    type: 'straight',
+    type: 'relationshipEdge',
     animated: false,
     interactionWidth: isPrimary ? 20 : 10,
     label: isPrimary ? undefined : relationship.type,
-    labelStyle: isPrimary ? undefined : {
-      fill: '#7c5360',
-      fontSize: 10,
-      fontWeight: 800,
-    },
-    labelBgStyle: isPrimary ? undefined : {
-      fill: '#fff9fa',
-      fillOpacity: 0.82,
-    },
-    labelBgPadding: isPrimary ? undefined : [4, 2],
-    labelBgBorderRadius: isPrimary ? undefined : 999,
     zIndex: isPrimary ? 1 : 0,
     style: getRelationshipEdgeStyle(relationship, { metric: lineMetric, isPrimary }),
+    data: {
+      relationship,
+      isPrimary,
+      lineMetric,
+      centerPosition: { x: 0, y: 0 },
+    },
   }
 }
 
@@ -98,13 +93,23 @@ export async function loadGraphData(options: GraphLoadOptions = {}): Promise<Gra
       .map((relationship) => centerPerson ? getOtherPersonId(relationship, centerPerson.id) : undefined)
       .filter((personId): personId is string => Boolean(personId)),
   )
-  const people = centerPerson
+  const visiblePeople = centerPerson
     ? persons.filter((person) => (
       person.id !== centerPerson.id &&
       directPersonIds.has(person.id) &&
       (person.isSelf || filteredRegularPersonIds.has(person.id))
     ))
     : []
+  const personIds = new Set([...(centerPerson ? [centerPerson.id] : []), ...visiblePeople.map((person) => person.id)])
+  const visibleRelationships = relationships.filter((relationship) => personIds.has(relationship.sourcePersonId) && personIds.has(relationship.targetPersonId))
+  const layout = centerPerson
+    ? calculateNetworkLayout({
+      centerPersonId: centerPerson.id,
+      people: visiblePeople,
+      relationships: visibleRelationships,
+    })
+    : undefined
+  const people = layout?.people ?? visiblePeople
 
   const nodes: Node[] = []
   if (centerPerson) {
@@ -117,9 +122,9 @@ export async function loadGraphData(options: GraphLoadOptions = {}): Promise<Gra
     })
   }
 
-  people.forEach((person, index) => {
-    const relationship = centerPerson ? findRelationshipBetween(relationships, centerPerson.id, person.id) : undefined
-    const position = calculateCircularPosition(person, index, people.length, relationship)
+  people.forEach((person) => {
+    const relationship = layout?.directRelationshipsByPersonId.get(person.id) ?? (centerPerson ? findRelationshipBetween(visibleRelationships, centerPerson.id, person.id) : undefined)
+    const position = layout?.positions.get(person.id) ?? { x: 0, y: 0 }
     nodes.push({
       id: person.id,
       type: 'personNode',
@@ -129,9 +134,7 @@ export async function loadGraphData(options: GraphLoadOptions = {}): Promise<Gra
     })
   })
 
-  const personIds = new Set([...(centerPerson ? [centerPerson.id] : []), ...people.map((person) => person.id)])
   const nodePositions = new Map(nodes.map((node) => [node.id, node.position]))
-  const visibleRelationships = relationships.filter((relationship) => personIds.has(relationship.sourcePersonId) && personIds.has(relationship.targetPersonId))
   const secondaryEdges = centerPerson
     ? visibleRelationships
       .filter((relationship) => !isRelationshipConnectedToPerson(relationship, centerPerson.id))

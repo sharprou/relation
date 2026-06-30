@@ -24,15 +24,15 @@ export function getCircleColor(circle: string): string {
 }
 
 export function getEdgeWidth(intimacy: number): number {
-  if (intimacy >= 80) return 3.2
-  if (intimacy >= 50) return 2.7
+  if (intimacy >= 80) return 3
+  if (intimacy >= 50) return 2.65
   return 2.2
 }
 
 export function getSecondaryEdgeWidth(intimacy: number): number {
-  if (intimacy >= 80) return 1.8
-  if (intimacy >= 50) return 1.55
-  return 1.35
+  if (intimacy >= 80) return 2.1
+  if (intimacy >= 50) return 1.85
+  return 1.55
 }
 
 function getIntimacyStroke(value: number): string {
@@ -89,7 +89,7 @@ export function getRelationshipEdgeStyle(relationship: Relationship, options: Re
     strokeWidth: options.isPrimary ? getEdgeWidth(relationship.intimacy) : getSecondaryEdgeWidth(relationship.intimacy),
     strokeDasharray: getEdgeDashArray(relationship.status),
     strokeLinecap: 'round' as const,
-    opacity: options.isPrimary ? 0.88 : 0.58,
+    opacity: options.isPrimary ? 0.9 : 0.7,
   }
 }
 

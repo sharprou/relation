@@ -1,15 +1,20 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Background, ReactFlow, type Edge, type Node, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Crosshair } from 'lucide-react'
 import clsx from 'clsx'
 import PersonNode from './PersonNode'
 import CenterNode from './CenterNode'
+import RelationshipEdge from './RelationshipEdge'
 import { getRelationshipLegendItems, type GraphLineMetric } from './graphStyle'
 
 const nodeTypes = {
   centerNode: CenterNode,
   personNode: PersonNode,
+}
+
+const edgeTypes = {
+  relationshipEdge: RelationshipEdge,
 }
 
 interface GraphCanvasProps {
@@ -29,6 +34,10 @@ export default function GraphCanvas({ nodes, edges, lineMetric, onPersonClick, c
   const reactFlow = useReactFlow()
   const hasPersonNodes = nodes.some((node) => node.type === 'personNode')
   const legendItems = getRelationshipLegendItems(lineMetric)
+  const layoutSignature = useMemo(
+    () => nodes.map((node) => `${node.id}:${Math.round(node.position.x)},${Math.round(node.position.y)}`).join('|'),
+    [nodes],
+  )
 
   const fitGraphView = (duration = 320) => {
     reactFlow.fitView({ padding: 0.22, duration, maxZoom: 1.12 })
@@ -47,7 +56,7 @@ export default function GraphCanvas({ nodes, edges, lineMetric, onPersonClick, c
     }, 80)
 
     return () => window.clearTimeout(timeoutId)
-  }, [edges.length, nodes.length, reactFlow])
+  }, [edges.length, layoutSignature, reactFlow])
 
   return (
     <div className={clsx('relative h-full min-h-0 overflow-hidden rounded-[1.65rem] bg-[radial-gradient(circle_at_50%_43%,rgba(255,215,224,0.70),transparent_7.5rem),radial-gradient(circle_at_18%_18%,rgba(255,229,233,0.56),transparent_7rem),radial-gradient(circle_at_86%_28%,rgba(255,226,211,0.42),transparent_8rem),linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,249,249,0.76))] shadow-[0_18px_42px_rgba(218,116,139,0.11)] ring-1 ring-rose/10', className)}>
@@ -78,6 +87,7 @@ export default function GraphCanvas({ nodes, edges, lineMetric, onPersonClick, c
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           fitView
           fitViewOptions={{ padding: 0.22, maxZoom: 1.12 }}
           minZoom={0.35}
