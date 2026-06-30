@@ -8,9 +8,10 @@ interface EventCardProps {
   onDelete: (event: InteractionEvent) => void
 }
 
-function formatPositiveChange(value: number): string {
+function formatSignedChange(value: number): string {
   if (!Number.isFinite(value)) return '+0'
-  return `+${Math.max(0, Math.trunc(value))}`
+  const nextValue = Math.trunc(value)
+  return nextValue > 0 ? `+${nextValue}` : String(nextValue)
 }
 
 export default function EventCard({ event, person, onEdit, onDelete }: EventCardProps) {
@@ -33,11 +34,19 @@ export default function EventCard({ event, person, onEdit, onDelete }: EventCard
 
       {note ? <p className="mt-3 line-clamp-2 text-sm leading-6 text-ink/65">{note}</p> : null}
 
+      {event.photo ? (
+        <img
+          src={event.photo}
+          alt=""
+          className="mt-3 max-h-56 w-full rounded-[1.1rem] object-cover shadow-[0_12px_26px_rgba(218,116,139,0.10)] ring-1 ring-violet/10"
+        />
+      ) : null}
+
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-bold">
         {event.affectRelationship ? (
           <>
-            <span className="rounded-full bg-rose/10 px-2.5 py-1 text-rose">❤️ 亲密度 {formatPositiveChange(event.intimacyChange)}</span>
-            <span className="rounded-full bg-lake/10 px-2.5 py-1 text-lake">🛡 信任度 {formatPositiveChange(event.trustChange)}</span>
+            <span className="rounded-full bg-rose/10 px-2.5 py-1 text-rose">❤️ 亲密度 {formatSignedChange(event.intimacyChange)}</span>
+            <span className="rounded-full bg-lake/10 px-2.5 py-1 text-lake">🛡 信任度 {formatSignedChange(event.trustChange)}</span>
           </>
         ) : (
           <span className="rounded-full bg-ink/5 px-2.5 py-1 text-ink/55">不影响关系数值</span>

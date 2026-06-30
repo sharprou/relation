@@ -11,6 +11,10 @@ import {
 
 type PersonInput = Omit<Person, 'id' | 'createdAt' | 'updatedAt' | 'isSelf'>
 
+export interface AddPersonOptions {
+  connectToPersonId?: string
+}
+
 export function getDefaultPersonInput(): PersonInput {
   return {
     name: '',
@@ -75,7 +79,7 @@ export async function getPersonById(personId: string): Promise<Person | undefine
   return await db.persons.get(personId)
 }
 
-export async function addPerson(input: PersonInput): Promise<Person> {
+export async function addPerson(input: PersonInput, options: AddPersonOptions = {}): Promise<Person> {
   if (!input.name.trim()) {
     throw new Error('请输入人物姓名')
   }
@@ -83,7 +87,7 @@ export async function addPerson(input: PersonInput): Promise<Person> {
   const person = createPersonFromInput(input, false)
   await db.transaction('rw', db.persons, db.relationships, async () => {
     await db.persons.add(person)
-    await createRelationshipForPerson(person)
+    await createRelationshipForPerson(person, options.connectToPersonId)
   })
 
   return person

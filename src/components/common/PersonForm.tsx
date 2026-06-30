@@ -9,15 +9,50 @@ import PersonAvatar from './PersonAvatar'
 
 export type PersonFormValue = ReturnType<typeof getDefaultPersonInput>
 
+export interface PersonConnectionValue {
+  connectToPersonId?: string
+}
+
 interface PersonFormProps {
   person?: Person
+  connectionPeople?: Person[]
+  defaultConnectToPersonId?: string
   isSelf?: boolean
-  onSubmit: (value: PersonFormValue) => void | Promise<void>
+  onSubmit: (value: PersonFormValue, connection?: PersonConnectionValue) => void | Promise<void>
   onCancel: () => void
   submitLabel: string
 }
 
-export default function PersonForm({ person, isSelf = false, onSubmit, onCancel, submitLabel }: PersonFormProps) {
+function toNumberInput(value: number): string {
+  if (!Number.isFinite(value)) return ''
+  return String(Math.trunc(value))
+}
+
+function sanitizeUnsignedNumberInput(value: string, max: number): string {
+  const digits = value.replace(/\D/g, '')
+  if (!digits) return ''
+
+  return String(Math.min(max, Number(digits)))
+}
+
+function parseUnsignedNumberInput(value: string, fallback: number): number {
+  if (!value) return fallback
+
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return fallback
+
+  return Math.trunc(parsed)
+}
+
+export default function PersonForm({
+  person,
+  connectionPeople = [],
+  defaultConnectToPersonId,
+  isSelf = false,
+  onSubmit,
+  onCancel,
+  submitLabel,
+}: PersonFormProps) {
   const initial = useMemo<PersonFormValue>(() => {
     if (!person) return getDefaultPersonInput()
     return {
@@ -44,8 +79,29 @@ export default function PersonForm({ person, isSelf = false, onSubmit, onCancel,
   const [availableTags, setAvailableTags] = useState<TagItem[]>([])
   const [error, setError] = useState('')
   const [avatarBusy, setAvatarBusy] = useState(false)
+  const [intimacyInput, setIntimacyInput] = useState(() => toNumberInput(initial.intimacy))
+  const [trustInput, setTrustInput] = useState(() => toNumberInput(initial.trust))
+  const [importanceInput, setImportanceInput] = useState(() => toNumberInput(initial.importance))
+  const connectionOptions = [
+    ...connectionPeople.filter((item) => item.isSelf),
+    ...connectionPeople.filter((item) => !item.isSelf),
+  ].filter((item) => !item.isSelf || !person)
+  const fallbackConnectionPersonId = defaultConnectToPersonId ?? connectionOptions.find((item) => item.isSelf)?.id ?? connectionOptions[0]?.id ?? ''
+  const [connectToPersonId, setConnectToPersonId] = useState(fallbackConnectionPersonId)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const visibleAvailableTags = availableTags.filter((tag) => cleanVisibleTags([tag.name]).length > 0)
+  const showConnectionPicker = !person && connectionOptions.length > 0
+
+  useEffect(() => {
+    setForm(initial)
+    setIntimacyInput(toNumberInput(initial.intimacy))
+    setTrustInput(toNumberInput(initial.trust))
+    setImportanceInput(toNumberInput(initial.importance))
+  }, [initial])
+
+  useEffect(() => {
+    setConnectToPersonId(fallbackConnectionPersonId)
+  }, [fallbackConnectionPersonId])
 
   useEffect(() => {
     let active = true
@@ -79,7 +135,12 @@ export default function PersonForm({ person, isSelf = false, onSubmit, onCancel,
   }
 
   const handleSubmit = async () => {
-    const cleaned = sanitizePersonInput(form)
+    const cleaned = sanitizePersonInput({
+      ...form,
+      intimacy: parseUnsignedNumberInput(intimacyInput, 0),
+      trust: parseUnsignedNumberInput(trustInput, 0),
+      importance: parseUnsignedNumberInput(importanceInput, 3),
+    })
 
     if (!cleaned.name) {
       setError('请输入人物姓名')
@@ -87,7 +148,7 @@ export default function PersonForm({ person, isSelf = false, onSubmit, onCancel,
     }
 
     setError('')
-    await onSubmit(cleaned)
+    await onSubmit(cleaned, showConnectionPicker ? { connectToPersonId } : undefined)
   }
 
   const handleAvatarChange = async (file?: File) => {
@@ -150,21 +211,61 @@ export default function PersonForm({ person, isSelf = false, onSubmit, onCancel,
           </label>
         </div>
 
+        {showConnectionPicker ? (
+          <div className="rounded-[1.25rem] bg-[#fff4f7] p-3 ring-1 ring-rose/10">
+            <label className="grid gap-2">
+              <span className="text-sm font-medium text-ink">这个人是谁认识的</span>
+              <select
+                className="rounded-2xl border border-rose/10 bg-white/86 px-4 py-3 text-sm font-semibold text-ink/72 outline-none focus:border-rose/30"
+                value={connectToPersonId}
+                onChange={(event) => setConnectToPersonId(event.target.value)}
+              >
+                {connectionOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.isSelf ? '我认识的人' : `通过 ${item.name} 认识`}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="mt-2 text-xs leading-5 text-ink/55">
+              选择别人时，会生成“那个人 - 新人物”的关系，不会自动连一条到我。
+            </p>
+          </div>
+        ) : null}
+
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="grid gap-2">
             <span className="text-sm font-medium text-ink">亲密度</span>
-            <input type="number" min={0} max={100} className="rounded-2xl border border-violet/10 bg-paper/85 px-4 py-3 outline-none focus:border-violet/35" value={form.intimacy} onChange={(e) => update('intimacy', Number(e.target.value))} />
+            <input
+              type="text"
+              inputMode="numeric"
+              className="rounded-2xl border border-violet/10 bg-paper/85 px-4 py-3 outline-none focus:border-violet/35"
+              value={intimacyInput}
+              onChange={(e) => setIntimacyInput(sanitizeUnsignedNumberInput(e.target.value, 100))}
+            />
           </label>
           <label className="grid gap-2">
             <span className="text-sm font-medium text-ink">信任度</span>
-            <input type="number" min={0} max={100} className="rounded-2xl border border-violet/10 bg-paper/85 px-4 py-3 outline-none focus:border-violet/35" value={form.trust} onChange={(e) => update('trust', Number(e.target.value))} />
+            <input
+              type="text"
+              inputMode="numeric"
+              className="rounded-2xl border border-violet/10 bg-paper/85 px-4 py-3 outline-none focus:border-violet/35"
+              value={trustInput}
+              onChange={(e) => setTrustInput(sanitizeUnsignedNumberInput(e.target.value, 100))}
+            />
           </label>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="grid gap-2">
             <span className="text-sm font-medium text-ink">重要程度</span>
-            <input type="number" min={1} max={5} className="rounded-2xl border border-violet/10 bg-paper/85 px-4 py-3 outline-none focus:border-violet/35" value={form.importance} onChange={(e) => update('importance', Number(e.target.value))} />
+            <input
+              type="text"
+              inputMode="numeric"
+              className="rounded-2xl border border-violet/10 bg-paper/85 px-4 py-3 outline-none focus:border-violet/35"
+              value={importanceInput}
+              onChange={(e) => setImportanceInput(sanitizeUnsignedNumberInput(e.target.value, 5))}
+            />
           </label>
           <label className="grid gap-2">
             <span className="text-sm font-medium text-ink">关系状态</span>

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo } from 'react'
-import { Background, ReactFlow, type Edge, type Node, useReactFlow } from '@xyflow/react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { Background, ReactFlow, type Edge, type Node, useEdgesState, useNodesState, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Crosshair } from 'lucide-react'
 import clsx from 'clsx'
@@ -17,11 +17,215 @@ const edgeTypes = {
   relationshipEdge: RelationshipEdge,
 }
 
+interface ForceVelocity {
+  x: number
+  y: number
+}
+
+interface ForceNodeData {
+  layoutAnchor?: {
+    x: number
+    y: number
+  }
+}
+
+const FORCE_MAX_FRAMES = 180
+const FORCE_MIN_MOTION = 0.18
+
+function toInteractiveNodes(nodes: Node[], previousNodes?: Node[]): Node[] {
+  const previousNodeById = new Map(previousNodes?.map((node) => [node.id, node]) ?? [])
+
+  return nodes.map((node) => {
+    const previousNode = previousNodeById.get(node.id)
+    const previousData = previousNode?.data as ForceNodeData | undefined
+    const layoutAnchor = previousData?.layoutAnchor ?? { ...node.position }
+
+    return {
+      ...node,
+      position: previousNode?.position ?? node.position,
+      data: {
+        ...node.data,
+        layoutAnchor,
+      },
+      draggable: true,
+      selectable: true,
+      zIndex: node.type === 'centerNode' ? 30 : 24,
+    }
+  })
+}
+
+function getStableDirection(idA: string, idB: string) {
+  let hash = 0
+  const key = `${idA}:${idB}`
+
+  for (let index = 0; index < key.length; index += 1) {
+    hash = key.charCodeAt(index) + ((hash << 5) - hash)
+  }
+
+  const angle = (Math.abs(hash) % 360) * (Math.PI / 180)
+
+  return {
+    x: Math.cos(angle),
+    y: Math.sin(angle),
+  }
+}
+
+function getForceRadius(node: Node): number {
+  return node.type === 'centerNode' ? 78 : 62
+}
+
+function getSpringLength(edge: Edge, nodeCount: number): number {
+  const edgeData = edge.data as { isPrimary?: boolean } | undefined
+
+  if (edgeData?.isPrimary) {
+    if (nodeCount <= 5) return 188
+    if (nodeCount <= 9) return 244
+    return 278
+  }
+
+  if (nodeCount <= 5) return 248
+  if (nodeCount <= 9) return 322
+  return 365
+}
+
+function getForceSettledNodes(
+  nodes: Node[],
+  edges: Edge[],
+  velocities: Map<string, ForceVelocity>,
+): { nodes: Node[]; motion: number } {
+  const nextNodes = nodes.map((node) => ({
+    ...node,
+    position: { ...node.position },
+  }))
+  const nodeById = new Map(nextNodes.map((node) => [node.id, node]))
+  const forces = new Map(nextNodes.map((node) => [node.id, { x: 0, y: 0 }]))
+  const nodeCount = nextNodes.length
+
+  for (let indexA = 0; indexA < nextNodes.length; indexA += 1) {
+    for (let indexB = indexA + 1; indexB < nextNodes.length; indexB += 1) {
+      const nodeA = nextNodes[indexA]
+      const nodeB = nextNodes[indexB]
+      let dx = nodeB.position.x - nodeA.position.x
+      let dy = nodeB.position.y - nodeA.position.y
+      let distance = Math.hypot(dx, dy)
+
+      if (distance < 0.001) {
+        const stableDirection = getStableDirection(nodeA.id, nodeB.id)
+        dx = stableDirection.x
+        dy = stableDirection.y
+        distance = 1
+      }
+
+      const nx = dx / distance
+      const ny = dy / distance
+      const desiredDistance = getForceRadius(nodeA) + getForceRadius(nodeB) + (nodeCount <= 6 ? 52 : nodeCount <= 12 ? 44 : 36)
+      const overlap = Math.max(0, desiredDistance - distance)
+      const charge = Math.min(2.8, 3800 / Math.max(distance * distance, 100))
+      const push = overlap * 0.055 + charge
+      const forceA = forces.get(nodeA.id)
+      const forceB = forces.get(nodeB.id)
+
+      if (forceA && forceB) {
+        forceA.x -= nx * push
+        forceA.y -= ny * push
+        forceB.x += nx * push
+        forceB.y += ny * push
+      }
+    }
+  }
+
+  edges.forEach((edge) => {
+    const sourceNode = nodeById.get(edge.source)
+    const targetNode = nodeById.get(edge.target)
+    const sourceForce = forces.get(edge.source)
+    const targetForce = forces.get(edge.target)
+
+    if (!sourceNode || !targetNode || !sourceForce || !targetForce) return
+
+    let dx = targetNode.position.x - sourceNode.position.x
+    let dy = targetNode.position.y - sourceNode.position.y
+    let distance = Math.hypot(dx, dy)
+
+    if (distance < 0.001) {
+      const stableDirection = getStableDirection(edge.source, edge.target)
+      dx = stableDirection.x
+      dy = stableDirection.y
+      distance = 1
+    }
+
+    const nx = dx / distance
+    const ny = dy / distance
+    const desiredLength = getSpringLength(edge, nodeCount)
+    const pull = (distance - desiredLength) * ((edge.data as { isPrimary?: boolean } | undefined)?.isPrimary ? 0.022 : 0.014)
+
+    sourceForce.x += nx * pull
+    sourceForce.y += ny * pull
+    targetForce.x -= nx * pull
+    targetForce.y -= ny * pull
+  })
+
+  let motion = 0
+
+  nextNodes.forEach((node) => {
+    const force = forces.get(node.id)
+    if (!force) return
+
+    const gravity = node.type === 'centerNode' ? 0.018 : 0.002
+    const layoutAnchor = (node.data as ForceNodeData | undefined)?.layoutAnchor
+    const anchorPull = node.type === 'centerNode' ? 0.04 : nodeCount <= 6 ? 0.016 : nodeCount <= 12 ? 0.013 : 0.01
+    const boundX = Math.max(0, Math.abs(node.position.x) - 450)
+    const boundY = Math.max(0, Math.abs(node.position.y) - 420)
+    const velocity = velocities.get(node.id) ?? { x: 0, y: 0 }
+
+    force.x -= node.position.x * gravity
+    force.y -= node.position.y * gravity
+
+    if (layoutAnchor) {
+      force.x += (layoutAnchor.x - node.position.x) * anchorPull
+      force.y += (layoutAnchor.y - node.position.y) * anchorPull
+    }
+
+    if (boundX > 0) force.x -= Math.sign(node.position.x) * boundX * 0.035
+    if (boundY > 0) force.y -= Math.sign(node.position.y) * boundY * 0.035
+
+    const nextVelocity = {
+      x: (velocity.x + force.x) * 0.82,
+      y: (velocity.y + force.y) * 0.82,
+    }
+
+    node.position.x += nextVelocity.x
+    node.position.y += nextVelocity.y
+    node.data = {
+      ...node.data,
+      placement: { ...node.position },
+    }
+    velocities.set(node.id, nextVelocity)
+    motion += Math.abs(nextVelocity.x) + Math.abs(nextVelocity.y)
+  })
+
+  return { nodes: nextNodes, motion }
+}
+
+function getWarmSettledNodes(nodes: Node[], edges: Edge[], rounds = Math.min(72, 34 + nodes.length * 5)): Node[] {
+  let nextNodes = nodes
+  const velocities = new Map<string, ForceVelocity>()
+
+  for (let index = 0; index < rounds; index += 1) {
+    const result = getForceSettledNodes(nextNodes, edges, velocities)
+    nextNodes = result.nodes
+
+    if (result.motion < FORCE_MIN_MOTION * 3) break
+  }
+
+  return nextNodes
+}
+
 interface GraphCanvasProps {
   nodes: Node[]
   edges: Edge[]
   lineMetric: GraphLineMetric
   onPersonClick: (personId: string) => void
+  layoutResetKey?: string
   className?: string
   emptyHint?: {
     text: string
@@ -30,21 +234,104 @@ interface GraphCanvasProps {
   }
 }
 
-export default function GraphCanvas({ nodes, edges, lineMetric, onPersonClick, className, emptyHint }: GraphCanvasProps) {
+export default function GraphCanvas({ nodes, edges, lineMetric, onPersonClick, layoutResetKey = '', className, emptyHint }: GraphCanvasProps) {
   const reactFlow = useReactFlow()
+  const lastLayoutSignatureRef = useRef('')
+  const animationFrameRef = useRef<number | undefined>(undefined)
+  const forceFrameRef = useRef(0)
+  const velocityRef = useRef(new Map<string, ForceVelocity>())
+  const [flowNodes, setFlowNodes, onNodesChange] = useNodesState(toInteractiveNodes(nodes))
+  const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState(edges)
+  const flowNodesRef = useRef(flowNodes)
+  const flowEdgesRef = useRef(flowEdges)
   const hasPersonNodes = nodes.some((node) => node.type === 'personNode')
   const personNodeCount = nodes.filter((node) => node.type === 'personNode').length
   const legendItems = getRelationshipLegendItems(lineMetric)
   const fitViewConfig = useMemo(() => {
-    if (personNodeCount <= 4) return { padding: 0.22, maxZoom: 1.12, yOffset: -82 }
-    if (personNodeCount <= 8) return { padding: 0.28, maxZoom: 1, yOffset: -52 }
-    if (personNodeCount <= 12) return { padding: 0.34, maxZoom: 0.92, yOffset: -24 }
+    if (personNodeCount <= 4) return { padding: 0.32, maxZoom: 1, yOffset: -38 }
+    if (personNodeCount <= 8) return { padding: 0.48, maxZoom: 0.86, yOffset: -20 }
+    if (personNodeCount <= 12) return { padding: 0.5, maxZoom: 0.8, yOffset: -8 }
     return { padding: 0.4, maxZoom: 0.82, yOffset: 0 }
   }, [personNodeCount])
   const layoutSignature = useMemo(
-    () => nodes.map((node) => `${node.id}:${Math.round(node.position.x)},${Math.round(node.position.y)}`).join('|'),
-    [nodes],
+    () => [
+      layoutResetKey,
+      nodes.map((node) => `${node.id}:${Math.round(node.position.x)},${Math.round(node.position.y)}`).join('|'),
+      edges.map((edge) => `${edge.id}:${edge.source}>${edge.target}`).sort().join('|'),
+    ].join('::'),
+    [edges, layoutResetKey, nodes],
   )
+
+  useEffect(() => {
+    setFlowEdges(edges)
+    flowEdgesRef.current = edges
+  }, [edges, setFlowEdges])
+
+  useEffect(() => {
+    flowNodesRef.current = flowNodes
+  }, [flowNodes])
+
+  useEffect(() => {
+    flowEdgesRef.current = flowEdges
+  }, [flowEdges])
+
+  const stopForceSimulation = useCallback(() => {
+    if (animationFrameRef.current !== undefined) {
+      window.cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = undefined
+    }
+  }, [])
+
+  const startForceSimulation = useCallback(() => {
+    stopForceSimulation()
+    velocityRef.current = new Map()
+    forceFrameRef.current = 0
+
+    const tick = () => {
+      forceFrameRef.current += 1
+      const result = getForceSettledNodes(flowNodesRef.current, flowEdgesRef.current, velocityRef.current)
+
+      flowNodesRef.current = result.nodes
+      setFlowNodes(result.nodes)
+
+      if (forceFrameRef.current < FORCE_MAX_FRAMES && result.motion > FORCE_MIN_MOTION) {
+        animationFrameRef.current = window.requestAnimationFrame(tick)
+      } else {
+        animationFrameRef.current = undefined
+      }
+    }
+
+    animationFrameRef.current = window.requestAnimationFrame(tick)
+  }, [setFlowNodes, stopForceSimulation])
+
+  useEffect(() => {
+    const shouldInitializeLayout = lastLayoutSignatureRef.current !== layoutSignature
+    lastLayoutSignatureRef.current = layoutSignature
+
+    setFlowNodes((currentNodes) => {
+      const interactiveNodes = toInteractiveNodes(nodes, shouldInitializeLayout ? undefined : currentNodes)
+      const nextNodes = !shouldInitializeLayout
+        ? interactiveNodes
+        : getWarmSettledNodes(interactiveNodes, edges)
+
+      flowNodesRef.current = nextNodes
+
+      return nextNodes
+    })
+
+    if (!shouldInitializeLayout) return undefined
+
+    stopForceSimulation()
+    velocityRef.current = new Map()
+
+    const timeoutId = window.setTimeout(() => {
+      startForceSimulation()
+    }, 90)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [edges, layoutSignature, nodes, setFlowNodes, startForceSimulation, stopForceSimulation])
+
+  useEffect(() => () => stopForceSimulation(), [stopForceSimulation])
 
   const fitGraphView = useCallback((duration = 320) => {
     reactFlow.fitView({ padding: fitViewConfig.padding, duration, maxZoom: fitViewConfig.maxZoom })
@@ -91,15 +378,22 @@ export default function GraphCanvas({ nodes, edges, lineMetric, onPersonClick, c
       </div>
       <div className="relative z-[1] h-full">
         <ReactFlow
-          nodes={nodes}
-          edges={edges}
+          nodes={flowNodes}
+          edges={flowEdges}
+          className="relationship-flow"
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onNodeDragStart={stopForceSimulation}
+          onNodeDragStop={() => {
+            window.setTimeout(() => startForceSimulation(), 0)
+          }}
           fitView
           fitViewOptions={{ padding: fitViewConfig.padding, maxZoom: fitViewConfig.maxZoom }}
           minZoom={0.24}
           maxZoom={1.35}
-          nodesDraggable={false}
+          nodesDraggable
           nodesConnectable={false}
           elementsSelectable
           panOnDrag

@@ -15,6 +15,7 @@ export interface EventFormInput {
   affectRelationship: boolean
   intimacyChange: number
   trustChange: number
+  photo?: string
   note?: string
 }
 
@@ -34,13 +35,14 @@ export function getDefaultEventInput(personId = ''): EventFormInput {
     affectRelationship: false,
     intimacyChange: 0,
     trustChange: 0,
+    photo: '',
     note: '',
   }
 }
 
 function sanitizeRelationshipChange(value: number): number {
   if (!Number.isFinite(value)) return 0
-  return Math.min(MAX_RELATIONSHIP_CHANGE, Math.max(0, Math.trunc(value)))
+  return Math.min(MAX_RELATIONSHIP_CHANGE, Math.max(-MAX_RELATIONSHIP_CHANGE, Math.trunc(value)))
 }
 
 function sanitizeEventInput(input: EventFormInput): EventFormInput {
@@ -55,6 +57,7 @@ function sanitizeEventInput(input: EventFormInput): EventFormInput {
     affectRelationship,
     intimacyChange: affectRelationship ? sanitizeRelationshipChange(input.intimacyChange) : 0,
     trustChange: affectRelationship ? sanitizeRelationshipChange(input.trustChange) : 0,
+    photo: (input.photo ?? '').trim(),
     note: (input.note ?? '').trim(),
   }
 }

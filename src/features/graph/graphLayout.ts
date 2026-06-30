@@ -15,6 +15,7 @@ interface NetworkLayoutInput {
   centerPersonId: string
   people: Person[]
   relationships: Relationship[]
+  depthByPersonId?: Map<string, number>
 }
 
 interface LayoutConfig {
@@ -100,8 +101,12 @@ function stableComparePeople(
   centerPersonId: string,
   relationshipsByPair: Map<string, Relationship>,
   degreeByPersonId: Map<string, number>,
+  depthByPersonId?: Map<string, number>,
 ) {
   return (personA: Person, personB: Person) => {
+    const depthDelta = (depthByPersonId?.get(personA.id) ?? 1) - (depthByPersonId?.get(personB.id) ?? 1)
+    if (depthDelta !== 0) return depthDelta
+
     const relationshipA = relationshipsByPair.get(relationKey(centerPersonId, personA.id))
     const relationshipB = relationshipsByPair.get(relationKey(centerPersonId, personB.id))
     const strengthDelta = relationStrength(relationshipB) - relationStrength(relationshipA)
@@ -115,6 +120,13 @@ function stableComparePeople(
 
     return personA.id.localeCompare(personB.id)
   }
+}
+
+function getPersonDepth(personId: string, centerPersonId: string, relationshipsByPair: Map<string, Relationship>, depthByPersonId?: Map<string, number>): number {
+  const depth = depthByPersonId?.get(personId)
+  if (depth && depth > 0) return depth
+
+  return relationshipsByPair.has(relationKey(centerPersonId, personId)) ? 1 : 2
 }
 
 function buildRelationshipMaps(relationships: Relationship[]): {
@@ -187,8 +199,43 @@ function createInitialPositions(
   relationshipsByPair: Map<string, Relationship>,
   degreeByPersonId: Map<string, number>,
   config: LayoutConfig,
+  depthByPersonId?: Map<string, number>,
 ): Map<string, GraphPoint> {
   const positions = new Map<string, GraphPoint>()
+  const maxDepth = Math.max(1, ...people.map((person) => getPersonDepth(person.id, centerPersonId, relationshipsByPair, depthByPersonId)))
+
+  if (maxDepth > 1) {
+    const groupedByDepth = new Map<number, Person[]>()
+
+    people.forEach((person) => {
+      const depth = getPersonDepth(person.id, centerPersonId, relationshipsByPair, depthByPersonId)
+      const group = groupedByDepth.get(depth) ?? []
+
+      group.push(person)
+      groupedByDepth.set(depth, group)
+    })
+
+    Array.from(groupedByDepth.keys()).sort((depthA, depthB) => depthA - depthB).forEach((depth) => {
+      const ringPeople = groupedByDepth.get(depth) ?? []
+      const safeDepth = Math.min(depth, 4)
+      const radiusX = clamp(config.centerSafeRadius + 82 + (safeDepth - 1) * 108, config.centerSafeRadius + 48, config.bounds.maxX - 36)
+      const radiusY = clamp(config.centerSafeRadius + 96 + (safeDepth - 1) * 118, config.centerSafeRadius + 56, config.bounds.maxY - 36)
+      const angleOffset = -Math.PI / 2 + (depth - 1) * (Math.PI / Math.max(ringPeople.length, 3))
+
+      placePeopleOnRing(ringPeople, positions, {
+        centerPersonId,
+        relationshipsByPair,
+        degreeByPersonId,
+        config,
+        radiusX,
+        radiusY,
+        angleOffset,
+      })
+    })
+
+    return positions
+  }
+
   const preset = PRESET_POSITIONS[people.length]
 
   if (preset) {
@@ -247,6 +294,7 @@ function relaxPositions(
   relationshipsByPair: Map<string, Relationship>,
   degreeByPersonId: Map<string, number>,
   config: LayoutConfig,
+  depthByPersonId?: Map<string, number>,
 ): Map<string, GraphPoint> {
   const nextPositions = new Map([...positions].map(([personId, point]) => [personId, { ...point }]))
   const visiblePersonIds = new Set(people.map((person) => person.id))
@@ -315,17 +363,22 @@ function relaxPositions(
       const directRelationship = relationshipsByPair.get(relationKey(centerPersonId, person.id))
       const strength = relationStrength(directRelationship)
       const degree = degreeByPersonId.get(person.id) ?? 0
+      const depth = getPersonDepth(person.id, centerPersonId, relationshipsByPair, depthByPersonId)
+      const safeDepth = Math.min(depth, 4)
       const averageRadius = (config.radiusX + config.radiusY) / 2
-      const ringBias = people.length > DOUBLE_RING_THRESHOLD && index >= innerRingCount
-        ? averageRadius + 42
-        : averageRadius - (people.length > DOUBLE_RING_THRESHOLD ? 24 : 0)
+      const depthRingBias = config.centerSafeRadius + 82 + (safeDepth - 1) * 112
+      const ringBias = depth > 1
+        ? depthRingBias
+        : people.length > DOUBLE_RING_THRESHOLD && index >= innerRingCount
+          ? averageRadius + 42
+          : averageRadius - (people.length > DOUBLE_RING_THRESHOLD ? 24 : 0)
       const minRadialTarget = people.length > DOUBLE_RING_THRESHOLD
         ? config.centerSafeRadius + 58
         : config.centerSafeRadius + 22
       const targetRadius = clamp(
-        ringBias - strength * 0.34 - degree * 2.8,
-        minRadialTarget,
-        averageRadius + 68,
+        ringBias - strength * (depth > 1 ? 0.12 : 0.34) - degree * (depth > 1 ? 1.2 : 2.8),
+        depth > 1 ? config.centerSafeRadius + 72 + (safeDepth - 2) * 82 : minRadialTarget,
+        Math.min(Math.max(config.bounds.maxX, config.bounds.maxY) - 48, averageRadius + 52 + (safeDepth - 1) * 96),
       )
       const radialDistance = Math.max(0.001, Math.hypot(point.x, point.y))
       const radialDirection = { x: point.x / radialDistance, y: point.y / radialDistance }
@@ -350,9 +403,9 @@ function relaxPositions(
   return nextPositions
 }
 
-export function calculateNetworkLayout({ centerPersonId, people, relationships }: NetworkLayoutInput): NetworkLayoutResult {
+export function calculateNetworkLayout({ centerPersonId, people, relationships, depthByPersonId }: NetworkLayoutInput): NetworkLayoutResult {
   const { relationshipsByPair, degreeByPersonId } = buildRelationshipMaps(relationships)
-  const orderedPeople = [...people].sort(stableComparePeople(centerPersonId, relationshipsByPair, degreeByPersonId))
+  const orderedPeople = [...people].sort(stableComparePeople(centerPersonId, relationshipsByPair, degreeByPersonId, depthByPersonId))
   const directRelationshipsByPersonId = new Map<string, Relationship>()
   const layoutConfig = getLayoutConfig(orderedPeople.length)
 
@@ -361,7 +414,7 @@ export function calculateNetworkLayout({ centerPersonId, people, relationships }
     if (relationship) directRelationshipsByPersonId.set(person.id, relationship)
   })
 
-  const initialPositions = createInitialPositions(orderedPeople, centerPersonId, relationshipsByPair, degreeByPersonId, layoutConfig)
+  const initialPositions = createInitialPositions(orderedPeople, centerPersonId, relationshipsByPair, degreeByPersonId, layoutConfig, depthByPersonId)
   const positions = relaxPositions(
     orderedPeople,
     initialPositions,
@@ -370,6 +423,7 @@ export function calculateNetworkLayout({ centerPersonId, people, relationships }
     relationshipsByPair,
     degreeByPersonId,
     layoutConfig,
+    depthByPersonId,
   )
 
   return { people: orderedPeople, positions, directRelationshipsByPersonId }
@@ -381,7 +435,11 @@ export function getHandlePairForPosition(position: { x: number; y: number }): {
   selfHandle: GraphHandlePosition
   personHandle: GraphHandlePosition
 } {
-  if (Math.abs(position.x) >= Math.abs(position.y)) {
+  const absX = Math.abs(position.x)
+  const absY = Math.abs(position.y)
+  const diagonalShouldUseSideHandle = absY > absX && absX / Math.max(absY, 1) > 0.52
+
+  if (absX >= absY || diagonalShouldUseSideHandle) {
     return position.x >= 0
       ? { selfHandle: 'right', personHandle: 'left' }
       : { selfHandle: 'left', personHandle: 'right' }

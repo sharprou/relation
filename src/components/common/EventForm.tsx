@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { InteractionEvent, Person } from '../../types'
 import { getDefaultEventInput, type EventFormInput } from '../../features/events/eventService'
 import { DEFAULT_EMOTIONAL_TONES, DEFAULT_EVENT_TYPES } from '../../utils/constants'
+import { compressEventImageToDataUrl } from '../../utils/image'
 
 const MAX_RELATIONSHIP_CHANGE = 100
 
@@ -15,21 +16,24 @@ interface EventFormProps {
 
 function toChangeInput(value: number): string {
   if (!Number.isFinite(value)) return '0'
-  return String(Math.min(MAX_RELATIONSHIP_CHANGE, Math.max(0, Math.trunc(value))))
+  return String(Math.min(MAX_RELATIONSHIP_CHANGE, Math.max(-MAX_RELATIONSHIP_CHANGE, Math.trunc(value))))
 }
 
 function sanitizeChangeInput(value: string): string {
-  const digits = value.replace(/\D/g, '')
-  if (!digits) return ''
+  const trimmed = value.trim()
+  const sign = trimmed.startsWith('-') ? '-' : ''
+  const digits = trimmed.replace(/\D/g, '')
 
-  return String(Math.min(MAX_RELATIONSHIP_CHANGE, Number(digits)))
+  if (!digits) return sign
+
+  return `${sign}${Math.min(MAX_RELATIONSHIP_CHANGE, Number(digits))}`
 }
 
 function parseChangeInput(value: string): number {
-  if (!value) return 0
+  if (!value || value === '-') return 0
   const parsed = Number(value)
   if (!Number.isFinite(parsed)) return 0
-  return Math.min(MAX_RELATIONSHIP_CHANGE, Math.max(0, Math.trunc(parsed)))
+  return Math.min(MAX_RELATIONSHIP_CHANGE, Math.max(-MAX_RELATIONSHIP_CHANGE, Math.trunc(parsed)))
 }
 
 export default function EventForm({ event, people, onSubmit, onCancel, submitLabel }: EventFormProps) {
@@ -44,6 +48,7 @@ export default function EventForm({ event, people, onSubmit, onCancel, submitLab
       affectRelationship: event.affectRelationship,
       intimacyChange: event.intimacyChange,
       trustChange: event.trustChange,
+      photo: event.photo ?? '',
       note: event.note ?? '',
     }
   }, [event, people])
@@ -52,6 +57,8 @@ export default function EventForm({ event, people, onSubmit, onCancel, submitLab
   const [intimacyChangeInput, setIntimacyChangeInput] = useState(() => toChangeInput(initial.intimacyChange))
   const [trustChangeInput, setTrustChangeInput] = useState(() => toChangeInput(initial.trustChange))
   const [error, setError] = useState('')
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setForm(initial)
@@ -67,6 +74,21 @@ export default function EventForm({ event, people, onSubmit, onCancel, submitLab
 
   const update = <K extends keyof EventFormInput>(key: K, value: EventFormInput[K]) => {
     setForm((current) => ({ ...current, [key]: value }))
+  }
+
+  const handlePhotoChange = async (file?: File) => {
+    if (!file) return
+
+    try {
+      setPhotoBusy(true)
+      setError('')
+      update('photo', await compressEventImageToDataUrl(file))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '照片处理失败')
+    } finally {
+      setPhotoBusy(false)
+      if (photoInputRef.current) photoInputRef.current.value = ''
+    }
   }
 
   const handleSubmit = async () => {
@@ -126,6 +148,36 @@ export default function EventForm({ event, people, onSubmit, onCancel, submitLab
           </select>
         </label>
 
+        <div className="grid gap-2 rounded-[1.25rem] bg-paper/70 p-3 ring-1 ring-violet/10">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-ink">事件照片</p>
+              <p className="mt-1 text-xs leading-5 text-ink/55">照片会压缩后保存在本地记录里。</p>
+            </div>
+            <button
+              type="button"
+              className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-violet shadow-sm ring-1 ring-violet/10 disabled:text-ink/35"
+              disabled={photoBusy}
+              onClick={() => photoInputRef.current?.click()}
+            >
+              {photoBusy ? '处理中' : form.photo ? '更换照片' : '上传照片'}
+            </button>
+          </div>
+          {form.photo ? (
+            <div className="overflow-hidden rounded-[1.1rem] bg-white shadow-[0_12px_26px_rgba(218,116,139,0.10)] ring-1 ring-violet/10">
+              <img src={form.photo} alt="" className="max-h-56 w-full object-cover" />
+              <button
+                type="button"
+                className="w-full bg-white px-4 py-2 text-xs font-bold text-ink/60"
+                onClick={() => update('photo', '')}
+              >
+                移除照片
+              </button>
+            </div>
+          ) : null}
+          <input ref={photoInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => handlePhotoChange(event.target.files?.[0])} />
+        </div>
+
         <label className="flex items-center justify-between rounded-2xl bg-paper px-4 py-3">
           <span className="text-sm font-medium text-ink">影响关系数值</span>
           <input type="checkbox" className="h-5 w-5 accent-violet" checked={form.affectRelationship} onChange={(event) => update('affectRelationship', event.target.checked)} />
@@ -133,17 +185,16 @@ export default function EventForm({ event, people, onSubmit, onCancel, submitLab
 
         {form.affectRelationship ? (
           <div className="rounded-[1.25rem] bg-violetMist/55 p-3 ring-1 ring-violet/10">
-            <p className="text-xs leading-5 text-violet">保存后会同步更新人物和关系数值。</p>
+            <p className="text-xs leading-5 text-violet">保存后会同步更新人物和关系数值，可以填负数表示关系变弱。</p>
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
               <label className="grid gap-2">
                 <span className="text-sm font-medium text-ink">❤️ 亲密度变化</span>
                 <input
                   type="text"
-                  inputMode="numeric"
-                  min={0}
-                  step={1}
+                  inputMode="decimal"
                   className="rounded-2xl border border-white bg-white/80 px-4 py-3 outline-none"
                   value={intimacyChangeInput}
+                  placeholder="-10 或 10"
                   onChange={(event) => setIntimacyChangeInput(sanitizeChangeInput(event.target.value))}
                 />
               </label>
@@ -151,11 +202,10 @@ export default function EventForm({ event, people, onSubmit, onCancel, submitLab
                 <span className="text-sm font-medium text-ink">🛡 信任度变化</span>
                 <input
                   type="text"
-                  inputMode="numeric"
-                  min={0}
-                  step={1}
+                  inputMode="decimal"
                   className="rounded-2xl border border-white bg-white/80 px-4 py-3 outline-none"
                   value={trustChangeInput}
+                  placeholder="-10 或 10"
                   onChange={(event) => setTrustChangeInput(sanitizeChangeInput(event.target.value))}
                 />
               </label>

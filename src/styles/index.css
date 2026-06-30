@@ -47,3 +47,19 @@ textarea {
 .react-flow__edge-path {
   transition: stroke 180ms ease, stroke-width 180ms ease, opacity 180ms ease;
 }
+
+.relationship-flow .react-flow__edges {
+  z-index: 0;
+}
+
+.relationship-flow .react-flow__nodes {
+  z-index: 2;
+}
+
+.relationship-flow .react-flow__node {
+  z-index: 24;
+}
+
+.relationship-flow .react-flow__node-centerNode {
+  z-index: 30;
+}

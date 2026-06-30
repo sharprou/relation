@@ -4,7 +4,7 @@ import ConfirmDialog from '../components/common/ConfirmDialog'
 import PageShell from '../components/common/PageShell'
 import PersonCard from '../components/common/PersonCard'
 import PersonDetail from '../components/common/PersonDetail'
-import PersonForm, { type PersonFormValue } from '../components/common/PersonForm'
+import PersonForm, { type PersonConnectionValue, type PersonFormValue } from '../components/common/PersonForm'
 import RelationshipForm from '../components/common/RelationshipForm'
 import { listEventsByPersonId } from '../features/events/eventService'
 import { addPerson, deletePerson, getPersonById, listPeople, updatePerson } from '../features/people/peopleService'
@@ -50,6 +50,7 @@ export default function PeoplePage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [keyword, setKeyword] = useState('')
   const [filters, setFilters] = useState<PeopleFilters>(EMPTY_PEOPLE_FILTERS)
+  const [createConnectToPersonId, setCreateConnectToPersonId] = useState<string | undefined>(undefined)
 
   const refresh = async () => {
     const [personRows, tagRows] = await Promise.all([listPeople(), listTags()])
@@ -140,8 +141,9 @@ export default function PeoplePage() {
     setFilters(EMPTY_PEOPLE_FILTERS)
   }
 
-  const openCreate = () => {
+  const openCreate = (connectToPersonId?: string) => {
     setMode('create')
+    setCreateConnectToPersonId(connectToPersonId)
     setSelectedPerson(null)
     setSelectedRelationship(undefined)
     setSelectedRelatedRelationships([])
@@ -159,11 +161,12 @@ export default function PeoplePage() {
     setMode('edit')
   }
 
-  const submitCreate = async (value: PersonFormValue) => {
+  const submitCreate = async (value: PersonFormValue, connection?: PersonConnectionValue) => {
     try {
-      await addPerson(value)
+      await addPerson(value, { connectToPersonId: connection?.connectToPersonId })
       await refresh()
       setMode('list')
+      setCreateConnectToPersonId(undefined)
     } catch (err) {
       alert(err instanceof Error ? err.message : '保存失败')
     }
@@ -215,6 +218,7 @@ export default function PeoplePage() {
 
   const cancelCreateOrEdit = () => {
     setMode('list')
+    setCreateConnectToPersonId(undefined)
   }
 
   const closeRelationshipForm = () => {
@@ -285,7 +289,7 @@ export default function PeoplePage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm font-semibold text-ink/55">共 {regularPeople.length} 位普通人物</p>
-          <button type="button" className="rounded-2xl bg-violet px-4 py-2 text-sm font-bold text-white shadow-soft" onClick={openCreate}>
+          <button type="button" className="rounded-2xl bg-violet px-4 py-2 text-sm font-bold text-white shadow-soft" onClick={() => openCreate()}>
             + 添加
           </button>
         </div>
@@ -293,7 +297,13 @@ export default function PeoplePage() {
         {error ? <div className="rounded-2xl bg-white/90 px-4 py-3 text-sm text-rose-700 shadow-soft ring-1 ring-violet/10">{error}</div> : null}
 
         {mode === 'create' ? (
-          <PersonForm submitLabel="保存人物" onCancel={cancelCreateOrEdit} onSubmit={submitCreate} />
+          <PersonForm
+            connectionPeople={people}
+            defaultConnectToPersonId={createConnectToPersonId}
+            submitLabel="保存人物"
+            onCancel={cancelCreateOrEdit}
+            onSubmit={submitCreate}
+          />
         ) : null}
 
         {mode === 'edit' && selectedPerson ? (
@@ -369,6 +379,7 @@ export default function PeoplePage() {
             events={selectedEvents}
             onEdit={openEdit}
             onDelete={askDelete}
+            onAddKnownPerson={() => openCreate(selectedPerson.id)}
             onAddRelationship={openCreateRelationship}
             onEditRelationship={openEditRelationship}
             onDeleteRelationship={askDeleteRelationship}
@@ -391,7 +402,7 @@ export default function PeoplePage() {
             <p className="text-base font-medium text-ink">你的人物关系图谱还是空的。</p>
             <p className="mt-2 text-sm leading-6 text-ink/60">先添加第一个人物吧。</p>
             <div className="mt-4">
-              <button type="button" className="rounded-2xl bg-violet px-4 py-3 text-sm font-medium text-white" onClick={openCreate}>
+              <button type="button" className="rounded-2xl bg-violet px-4 py-3 text-sm font-medium text-white" onClick={() => openCreate()}>
                 添加人物
               </button>
             </div>

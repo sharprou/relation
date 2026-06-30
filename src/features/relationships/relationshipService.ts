@@ -203,23 +203,30 @@ export async function ensureRelationshipForPerson(person: Person): Promise<Relat
   return created
 }
 
-export async function createRelationshipForPerson(person: Person): Promise<Relationship> {
+export async function createRelationshipForPerson(person: Person, sourcePersonId?: string): Promise<Relationship> {
   if (person.isSelf) {
     throw new Error('“我”节点不能创建普通关系。')
   }
 
-  let selfPerson = await db.persons.filter((item) => item.isSelf).first()
-  if (!selfPerson) {
+  let sourcePerson = sourcePersonId ? await db.persons.get(sourcePersonId) : await db.persons.filter((item) => item.isSelf).first()
+  if (!sourcePerson && !sourcePersonId) {
     await initApp()
-    selfPerson = await db.persons.filter((item) => item.isSelf).first()
+    sourcePerson = await db.persons.filter((item) => item.isSelf).first()
   }
 
-  if (!selfPerson) {
-    console.error('未找到“我”节点，无法创建关系。')
-    throw new Error('未找到“我”节点，无法创建关系。')
+  if (!sourcePerson) {
+    throw new Error('未找到接入人物，无法创建关系。')
   }
 
-  const created = buildRelationship(person, selfPerson.id)
+  if (sourcePerson.id === person.id) {
+    throw new Error('人物不能关联自己。')
+  }
+
+  if (await relationshipExistsBetween(sourcePerson.id, person.id)) {
+    throw new Error('这两个人之间已经有关系了。')
+  }
+
+  const created = buildRelationship(person, sourcePerson.id)
   await db.relationships.add(created)
   return created
 }
@@ -240,10 +247,7 @@ export async function syncRelationshipFromPerson(person: Person): Promise<void> 
     }
 
     await db.relationships.put(updated)
-    return
   }
-
-  await createRelationshipForPerson(person)
 }
 
 export async function deleteRelationshipsByPersonId(personId: string): Promise<void> {

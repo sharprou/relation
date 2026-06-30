@@ -13,14 +13,16 @@ interface PersonDetailProps {
   events?: InteractionEvent[]
   onEdit: () => void
   onDelete: () => void
+  onAddKnownPerson?: () => void
   onAddRelationship?: () => void
   onEditRelationship?: (relationship: Relationship) => void
   onDeleteRelationship?: (relationship: Relationship) => void
 }
 
-function formatPositiveChange(value: number): string {
+function formatSignedChange(value: number): string {
   if (!Number.isFinite(value)) return '+0'
-  return `+${Math.max(0, Math.trunc(value))}`
+  const nextValue = Math.trunc(value)
+  return nextValue > 0 ? `+${nextValue}` : String(nextValue)
 }
 
 function ImpactPills({ event }: { event: InteractionEvent }) {
@@ -30,8 +32,8 @@ function ImpactPills({ event }: { event: InteractionEvent }) {
 
   return (
     <div className="flex flex-wrap gap-2 text-[11px] font-bold">
-      <span className="rounded-full bg-rose/10 px-2.5 py-1 text-rose">❤️ 亲密度 {formatPositiveChange(event.intimacyChange)}</span>
-      <span className="rounded-full bg-lake/10 px-2.5 py-1 text-lake">🛡 信任度 {formatPositiveChange(event.trustChange)}</span>
+      <span className="rounded-full bg-rose/10 px-2.5 py-1 text-rose">❤️ 亲密度 {formatSignedChange(event.intimacyChange)}</span>
+      <span className="rounded-full bg-lake/10 px-2.5 py-1 text-lake">🛡 信任度 {formatSignedChange(event.trustChange)}</span>
     </div>
   )
 }
@@ -44,6 +46,7 @@ export default function PersonDetail({
   events = [],
   onEdit,
   onDelete,
+  onAddKnownPerson,
   onAddRelationship,
   onEditRelationship,
   onDeleteRelationship,
@@ -160,9 +163,16 @@ export default function PersonDetail({
               <p className="mt-1 text-xs font-semibold text-ink/45">记录这个人与其他人的关系</p>
             </div>
             {onAddRelationship ? (
-              <button type="button" className="shrink-0 rounded-full bg-[#ffe4eb] px-3 py-2 text-xs font-black text-rose shadow-[0_10px_22px_rgba(218,116,139,0.10)] ring-1 ring-rose/10" onClick={onAddRelationship}>
-                添加关联人物
-              </button>
+              <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                {onAddKnownPerson ? (
+                  <button type="button" className="rounded-full bg-rose px-3 py-2 text-xs font-black text-white shadow-[0_10px_22px_rgba(218,116,139,0.14)]" onClick={onAddKnownPerson}>
+                    添加 TA 认识的人
+                  </button>
+                ) : null}
+                <button type="button" className="rounded-full bg-[#ffe4eb] px-3 py-2 text-xs font-black text-rose shadow-[0_10px_22px_rgba(218,116,139,0.10)] ring-1 ring-rose/10" onClick={onAddRelationship}>
+                  关联已有人物
+                </button>
+              </div>
             ) : null}
           </div>
 
@@ -203,6 +213,13 @@ export default function PersonDetail({
                   <span className="shrink-0 rounded-full bg-violetMist px-2.5 py-1 text-[11px] font-bold text-violet">{event.emotionalTone}</span>
                 </div>
                 {event.note ? <p className="mt-2 line-clamp-2 text-xs leading-5 text-ink/60">{event.note}</p> : null}
+                {event.photo ? (
+                  <img
+                    src={event.photo}
+                    alt=""
+                    className="mt-2 max-h-44 w-full rounded-[1rem] object-cover shadow-[0_10px_20px_rgba(218,116,139,0.10)] ring-1 ring-violet/10"
+                  />
+                ) : null}
                 <div className="mt-2">
                   <ImpactPills event={event} />
                 </div>

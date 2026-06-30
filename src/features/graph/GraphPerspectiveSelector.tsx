@@ -27,7 +27,7 @@ export default function GraphPerspectiveSelector({ people, centerPersonId, onCha
     <>
       <button
         type="button"
-        className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3.5 py-2 text-[13px] font-black text-ink/68 shadow-[0_10px_22px_rgba(218,116,139,0.08)] ring-1 ring-rose/10 transition active:scale-[0.98]"
+        className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-white/90 px-3.5 py-2 text-[13px] font-black text-ink/68 shadow-[0_10px_22px_rgba(218,116,139,0.08)] ring-1 ring-rose/10 transition active:scale-[0.98]"
         onClick={() => setOpen(true)}
       >
         <span>视角：{centerPerson?.isSelf ? '我' : centerPerson?.name ?? '我'}</span>

@@ -1,6 +1,6 @@
 import { ReactFlowProvider } from '@xyflow/react'
 import { Search, SlidersHorizontal } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type WheelEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import GraphCanvas from '../features/graph/GraphCanvas'
 import { loadGraphData, type GraphData } from '../features/graph/graphService'
@@ -15,15 +15,24 @@ import { EMPTY_PEOPLE_FILTERS, getUniqueOptions, hasActivePeopleFilters, type Pe
 
 const CORE_CIRCLE = '核心圈'
 const MIN_INTIMACY = '60'
+type GraphNetworkDepth = 'direct' | 'all'
 
 export default function GraphPage() {
   const navigate = useNavigate()
+  const filterBarDragRef = useRef({
+    pointerId: -1,
+    startX: 0,
+    scrollLeft: 0,
+    didDrag: false,
+    suppressClick: false,
+  })
   const [graphData, setGraphData] = useState<GraphData | null>(null)
   const [allPeople, setAllPeople] = useState<Person[]>([])
   const [tags, setTags] = useState<TagItem[]>([])
   const [filters, setFilters] = useState<PeopleFilters>(EMPTY_PEOPLE_FILTERS)
   const [centerPersonId, setCenterPersonId] = useState('')
   const [lineMetric, setLineMetric] = useState<GraphLineMetric>('intimacy')
+  const [networkDepth, setNetworkDepth] = useState<GraphNetworkDepth>('direct')
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -35,7 +44,7 @@ export default function GraphPage() {
       try {
         setLoading(true)
         const [nextGraphData, peopleRows, tagRows] = await Promise.all([
-          loadGraphData({ filters, centerPersonId, lineMetric }),
+          loadGraphData({ filters, centerPersonId, lineMetric, networkDepth }),
           listPeople(),
           listTags(),
         ])
@@ -62,7 +71,7 @@ export default function GraphPage() {
     return () => {
       active = false
     }
-  }, [filters, centerPersonId, lineMetric])
+  }, [filters, centerPersonId, lineMetric, networkDepth])
 
   const regularPeople = useMemo(() => allPeople.filter((person) => !person.isSelf), [allPeople])
   const filterOptions = useMemo(() => ({
@@ -73,7 +82,7 @@ export default function GraphPage() {
   }), [regularPeople, tags])
 
   const hasGraphPeople = Boolean(graphData && graphData.people.length > 0)
-  const hasFilters = hasActivePeopleFilters(filters)
+  const hasFilters = hasActivePeopleFilters(filters) || networkDepth === 'all'
   const currentCenterLabel = graphData?.centerPerson?.isSelf
     ? '我'
     : graphData?.centerPerson?.name ?? '中心人物'
@@ -84,6 +93,65 @@ export default function GraphPage() {
 
   const clearFilters = () => {
     setFilters(EMPTY_PEOPLE_FILTERS)
+    setNetworkDepth('direct')
+  }
+
+  const handleFilterBarWheel = (event: WheelEvent<HTMLDivElement>) => {
+    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
+
+    event.currentTarget.scrollLeft += event.deltaY
+    event.preventDefault()
+  }
+
+  const handleFilterBarPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    filterBarDragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      scrollLeft: event.currentTarget.scrollLeft,
+      didDrag: false,
+      suppressClick: false,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const handleFilterBarPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const drag = filterBarDragRef.current
+
+    if (drag.pointerId !== event.pointerId) return
+
+    const deltaX = event.clientX - drag.startX
+    if (Math.abs(deltaX) > 4) {
+      drag.didDrag = true
+      drag.suppressClick = true
+    }
+
+    if (!drag.didDrag) return
+
+    event.currentTarget.scrollLeft = drag.scrollLeft - deltaX
+    event.preventDefault()
+  }
+
+  const handleFilterBarPointerEnd = (event: PointerEvent<HTMLDivElement>) => {
+    if (filterBarDragRef.current.pointerId !== event.pointerId) return
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    filterBarDragRef.current.pointerId = -1
+
+    if (filterBarDragRef.current.suppressClick) {
+      window.setTimeout(() => {
+        filterBarDragRef.current.suppressClick = false
+      }, 0)
+    }
+  }
+
+  const handleFilterBarClickCapture = (event: MouseEvent<HTMLDivElement>) => {
+    if (!filterBarDragRef.current.suppressClick) return
+
+    event.preventDefault()
+    event.stopPropagation()
+    filterBarDragRef.current.suppressClick = false
   }
 
   const toggleCoreCircle = () => {
@@ -98,6 +166,10 @@ export default function GraphPage() {
       ...current,
       minIntimacy: current.minIntimacy === MIN_INTIMACY ? '' : MIN_INTIMACY,
     }))
+  }
+
+  const toggleAllNetwork = () => {
+    setNetworkDepth((current) => current === 'all' ? 'direct' : 'all')
   }
 
   const emptyHint = !loading && graphData && !hasGraphPeople
@@ -132,8 +204,18 @@ export default function GraphPage() {
         </div>
       </header>
 
-      <div className="-mx-4 shrink-0 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex min-w-max items-center gap-2">
+      <div
+        data-testid="graph-filter-bar"
+        className="-mx-4 min-w-0 max-w-[calc(100%+2rem)] shrink-0 cursor-grab touch-pan-x select-none overflow-x-auto overscroll-x-contain px-4 pb-0.5 active:cursor-grabbing [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden"
+        onClickCapture={handleFilterBarClickCapture}
+        onPointerCancel={handleFilterBarPointerEnd}
+        onPointerDown={handleFilterBarPointerDown}
+        onPointerLeave={handleFilterBarPointerEnd}
+        onPointerMove={handleFilterBarPointerMove}
+        onPointerUp={handleFilterBarPointerEnd}
+        onWheel={handleFilterBarWheel}
+      >
+        <div className="flex w-max max-w-none items-center gap-2">
           {allPeople.length > 0 ? (
             <GraphPerspectiveSelector
               people={allPeople}
@@ -143,6 +225,7 @@ export default function GraphPage() {
           ) : null}
           <GraphMetricToggle value={lineMetric} onChange={setLineMetric} />
           <FilterChip active={!hasFilters} label="全部关系" onClick={clearFilters} />
+          <FilterChip active={networkDepth === 'all'} label="多级人脉" onClick={toggleAllNetwork} />
           <FilterChip active={filters.circle === CORE_CIRCLE} label="核心圈" onClick={toggleCoreCircle} />
           <FilterChip active={filters.minIntimacy === MIN_INTIMACY} label="亲密度 60+" onClick={toggleMinIntimacy} />
           {hasFilters ? <FilterChip active={false} label="清空" onClick={clearFilters} /> : null}
@@ -182,6 +265,15 @@ export default function GraphPage() {
               nodes={graphData.nodes}
               edges={graphData.edges}
               lineMetric={lineMetric}
+              layoutResetKey={[
+                graphData.centerPerson?.id ?? centerPersonId,
+                filters.relationType,
+                filters.circle,
+                filters.status,
+                filters.tag,
+                filters.minIntimacy,
+                networkDepth,
+              ].join('|')}
               emptyHint={emptyHint}
               onPersonClick={(personId) => navigate(`/people/${personId}`)}
             />
@@ -200,7 +292,7 @@ function FilterChip({ active, label, onClick }: { active: boolean; label: string
   return (
     <button
       type="button"
-      className={`rounded-full px-3.5 py-2 text-[13px] font-black shadow-[0_10px_22px_rgba(218,116,139,0.08)] ring-1 transition active:scale-[0.98] ${active ? 'bg-[#ffe3ec] text-rose ring-rose/20' : 'bg-white/90 text-ink/68 ring-rose/10'}`}
+      className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-black shadow-[0_10px_22px_rgba(218,116,139,0.08)] ring-1 transition active:scale-[0.98] ${active ? 'bg-[#ffe3ec] text-rose ring-rose/20' : 'bg-white/90 text-ink/68 ring-rose/10'}`}
       onClick={onClick}
     >
       {label}

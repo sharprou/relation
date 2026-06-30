@@ -1,11 +1,11 @@
 const AVATAR_SIZE = 320
 const AVATAR_QUALITY = 0.82
+const EVENT_IMAGE_MAX_SIZE = 1280
+const EVENT_IMAGE_QUALITY = 0.8
 const ACCEPTED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp'])
 
 export async function compressImageToDataUrl(file: File): Promise<string> {
-  if (!ACCEPTED_IMAGE_TYPES.has(file.type)) {
-    throw new Error('请选择 PNG、JPEG 或 WebP 图片')
-  }
+  validateImageFile(file)
 
   const source = await readFileAsDataUrl(file)
   const image = await loadImage(source)
@@ -24,6 +24,33 @@ export async function compressImageToDataUrl(file: File): Promise<string> {
 
   context.drawImage(image, sourceX, sourceY, side, side, 0, 0, AVATAR_SIZE, AVATAR_SIZE)
   return canvas.toDataURL('image/jpeg', AVATAR_QUALITY)
+}
+
+export async function compressEventImageToDataUrl(file: File): Promise<string> {
+  validateImageFile(file)
+
+  const source = await readFileAsDataUrl(file)
+  const image = await loadImage(source)
+  const scale = Math.min(1, EVENT_IMAGE_MAX_SIZE / Math.max(image.naturalWidth, image.naturalHeight))
+  const width = Math.max(1, Math.round(image.naturalWidth * scale))
+  const height = Math.max(1, Math.round(image.naturalHeight * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+
+  const context = canvas.getContext('2d')
+  if (!context) {
+    throw new Error('当前浏览器不支持图片压缩')
+  }
+
+  context.drawImage(image, 0, 0, width, height)
+  return canvas.toDataURL('image/jpeg', EVENT_IMAGE_QUALITY)
+}
+
+function validateImageFile(file: File): void {
+  if (!ACCEPTED_IMAGE_TYPES.has(file.type)) {
+    throw new Error('请选择 PNG、JPEG 或 WebP 图片')
+  }
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {

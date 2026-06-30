@@ -15,7 +15,7 @@ export default function CenterNode({ data }: NodeProps) {
   const fallbackName = person.isSelf ? '我' : person.name
 
   return (
-    <div className="relative grid h-[96px] w-[96px] place-items-center rounded-full bg-[#fff1f4] p-2 text-center text-ink shadow-[0_18px_40px_rgba(239,113,147,0.18)]">
+    <div className="relative grid h-[96px] w-[96px] cursor-grab place-items-center rounded-full bg-[#fff1f4] p-2 text-center text-ink shadow-[0_18px_40px_rgba(239,113,147,0.18)] active:cursor-grabbing">
       <span className="pointer-events-none absolute inset-[-10px] -z-10 rounded-full bg-[#ffd9e2]/35 blur-xl" />
       {handlePositions.map(([id, position]) => (
         <Handle key={`source-${id}`} id={id} type="source" position={position} className={handleClass} />
