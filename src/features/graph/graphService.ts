@@ -3,7 +3,7 @@ import { db } from '../../db/database'
 import type { Person, Relationship } from '../../types'
 import { filterPeopleByFilters, type PeopleFilters } from '../../utils/filter'
 import { calculateCircularPosition, getHandlePairForPosition } from './graphLayout'
-import { getEdgeDashArray, getEdgeStroke, getEdgeWidth } from './graphStyle'
+import { getEdgeDashArray, getEdgeStroke, getEdgeWidth, getSecondaryEdgeStroke, getSecondaryEdgeWidth } from './graphStyle'
 
 export interface GraphData {
   selfPerson?: Person
@@ -13,8 +13,17 @@ export interface GraphData {
   edges: Edge[]
 }
 
-function findRelationshipForPerson(person: Person, relationships: Relationship[]): Relationship | undefined {
-  return relationships.find((relationship) => relationship.targetPersonId === person.id || relationship.sourcePersonId === person.id)
+function findSelfRelationshipForPerson(person: Person, relationships: Relationship[], selfPerson?: Person): Relationship | undefined {
+  if (!selfPerson) return undefined
+  return relationships.find((relationship) => relationship.sourcePersonId === selfPerson.id && relationship.targetPersonId === person.id)
+}
+
+function isSelfRelationship(relationship: Relationship, selfPerson?: Person): boolean {
+  return Boolean(selfPerson && relationship.sourcePersonId === selfPerson.id)
+}
+
+function isPersonToPersonRelationship(relationship: Relationship, visiblePersonIds: Set<string>): boolean {
+  return visiblePersonIds.has(relationship.sourcePersonId) && visiblePersonIds.has(relationship.targetPersonId)
 }
 
 export async function loadGraphData(filters?: PeopleFilters): Promise<GraphData> {
@@ -38,7 +47,7 @@ export async function loadGraphData(filters?: PeopleFilters): Promise<GraphData>
   }
 
   people.forEach((person, index) => {
-    const relationship = findRelationshipForPerson(person, relationships)
+    const relationship = findSelfRelationshipForPerson(person, relationships, selfPerson)
     const position = calculateCircularPosition(person, index, people.length, relationship)
     nodes.push({
       id: person.id,
@@ -49,24 +58,69 @@ export async function loadGraphData(filters?: PeopleFilters): Promise<GraphData>
     })
   })
 
-  const personIds = new Set([...(selfPerson ? [selfPerson.id] : []), ...people.map((person) => person.id)])
+  const visibleRegularPersonIds = new Set(people.map((person) => person.id))
+  const personIds = new Set([...(selfPerson ? [selfPerson.id] : []), ...visibleRegularPersonIds])
   const nodePositions = new Map(nodes.map((node) => [node.id, node.position]))
-  const edges: Edge[] = relationships
-    .filter((relationship) => personIds.has(relationship.sourcePersonId) && personIds.has(relationship.targetPersonId))
+  const visibleRelationships = relationships.filter((relationship) => personIds.has(relationship.sourcePersonId) && personIds.has(relationship.targetPersonId))
+  const secondaryEdges: Edge[] = visibleRelationships
+    .filter((relationship) => !isSelfRelationship(relationship, selfPerson) && isPersonToPersonRelationship(relationship, visibleRegularPersonIds))
     .map((relationship) => {
-      const sourceIsSelf = relationship.sourcePersonId === selfPerson?.id
-      const personPosition = sourceIsSelf ? nodePositions.get(relationship.targetPersonId) : nodePositions.get(relationship.sourcePersonId)
+      const sourcePosition = nodePositions.get(relationship.sourcePersonId)
+      const targetPosition = nodePositions.get(relationship.targetPersonId)
+      const handlePair = sourcePosition && targetPosition
+        ? getHandlePairForPosition({
+          x: targetPosition.x - sourcePosition.x,
+          y: targetPosition.y - sourcePosition.y,
+        })
+        : undefined
+
+      return {
+        id: relationship.id,
+        source: relationship.sourcePersonId,
+        target: relationship.targetPersonId,
+        sourceHandle: handlePair?.selfHandle,
+        targetHandle: handlePair?.personHandle,
+        type: 'straight',
+        animated: false,
+        interactionWidth: 8,
+        label: relationship.type,
+        labelStyle: {
+          fill: '#7c5360',
+          fontSize: 10,
+          fontWeight: 800,
+        },
+        labelBgStyle: {
+          fill: '#fff9fa',
+          fillOpacity: 0.82,
+        },
+        labelBgPadding: [4, 2],
+        labelBgBorderRadius: 999,
+        zIndex: 0,
+        style: {
+          stroke: getSecondaryEdgeStroke(relationship.status, relationship.emotionalTone, relationship.intimacy),
+          strokeWidth: getSecondaryEdgeWidth(relationship.intimacy),
+          strokeDasharray: getEdgeDashArray(relationship.status),
+          strokeLinecap: 'round',
+          opacity: 0.58,
+        },
+      }
+    })
+  const primaryEdges: Edge[] = visibleRelationships
+    .filter((relationship) => isSelfRelationship(relationship, selfPerson) && visibleRegularPersonIds.has(relationship.targetPersonId))
+    .map((relationship) => {
+      const personPosition = nodePositions.get(relationship.targetPersonId)
       const handlePair = personPosition ? getHandlePairForPosition(personPosition) : undefined
 
       return {
         id: relationship.id,
         source: relationship.sourcePersonId,
         target: relationship.targetPersonId,
-        sourceHandle: handlePair ? (sourceIsSelf ? handlePair.selfHandle : handlePair.personHandle) : undefined,
-        targetHandle: handlePair ? (sourceIsSelf ? handlePair.personHandle : handlePair.selfHandle) : undefined,
+        sourceHandle: handlePair?.selfHandle,
+        targetHandle: handlePair?.personHandle,
         type: 'straight',
         animated: false,
         interactionWidth: 20,
+        zIndex: 1,
         style: {
           stroke: getEdgeStroke(relationship.status, relationship.emotionalTone, relationship.intimacy),
           strokeWidth: getEdgeWidth(relationship.intimacy),
@@ -76,6 +130,7 @@ export async function loadGraphData(filters?: PeopleFilters): Promise<GraphData>
         },
       }
     })
+  const edges = [...secondaryEdges, ...primaryEdges]
 
   return { selfPerson, people, relationships, nodes, edges }
 }

@@ -8,8 +8,9 @@ interface EventCardProps {
   onDelete: (event: InteractionEvent) => void
 }
 
-function formatSigned(value: number): string {
-  return `${value >= 0 ? '+' : ''}${value}`
+function formatPositiveChange(value: number): string {
+  if (!Number.isFinite(value)) return '+0'
+  return `+${Math.max(0, Math.trunc(value))}`
 }
 
 export default function EventCard({ event, person, onEdit, onDelete }: EventCardProps) {
@@ -35,8 +36,8 @@ export default function EventCard({ event, person, onEdit, onDelete }: EventCard
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-bold">
         {event.affectRelationship ? (
           <>
-            <span className="rounded-full bg-rose/10 px-2.5 py-1 text-rose">❤️ 亲密度 {formatSigned(event.intimacyChange)}</span>
-            <span className="rounded-full bg-lake/10 px-2.5 py-1 text-lake">🛡 信任度 {formatSigned(event.trustChange)}</span>
+            <span className="rounded-full bg-rose/10 px-2.5 py-1 text-rose">❤️ 亲密度 {formatPositiveChange(event.intimacyChange)}</span>
+            <span className="rounded-full bg-lake/10 px-2.5 py-1 text-lake">🛡 信任度 {formatPositiveChange(event.trustChange)}</span>
           </>
         ) : (
           <span className="rounded-full bg-ink/5 px-2.5 py-1 text-ink/55">不影响关系数值</span>

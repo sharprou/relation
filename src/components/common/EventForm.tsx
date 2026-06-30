@@ -3,12 +3,33 @@ import type { InteractionEvent, Person } from '../../types'
 import { getDefaultEventInput, type EventFormInput } from '../../features/events/eventService'
 import { DEFAULT_EMOTIONAL_TONES, DEFAULT_EVENT_TYPES } from '../../utils/constants'
 
+const MAX_RELATIONSHIP_CHANGE = 100
+
 interface EventFormProps {
   event?: InteractionEvent
   people: Person[]
   onSubmit: (value: EventFormInput) => void | Promise<void>
   onCancel: () => void
   submitLabel: string
+}
+
+function toChangeInput(value: number): string {
+  if (!Number.isFinite(value)) return '0'
+  return String(Math.min(MAX_RELATIONSHIP_CHANGE, Math.max(0, Math.trunc(value))))
+}
+
+function sanitizeChangeInput(value: string): string {
+  const digits = value.replace(/\D/g, '')
+  if (!digits) return ''
+
+  return String(Math.min(MAX_RELATIONSHIP_CHANGE, Number(digits)))
+}
+
+function parseChangeInput(value: string): number {
+  if (!value) return 0
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return 0
+  return Math.min(MAX_RELATIONSHIP_CHANGE, Math.max(0, Math.trunc(parsed)))
 }
 
 export default function EventForm({ event, people, onSubmit, onCancel, submitLabel }: EventFormProps) {
@@ -28,7 +49,15 @@ export default function EventForm({ event, people, onSubmit, onCancel, submitLab
   }, [event, people])
 
   const [form, setForm] = useState<EventFormInput>(initial)
+  const [intimacyChangeInput, setIntimacyChangeInput] = useState(() => toChangeInput(initial.intimacyChange))
+  const [trustChangeInput, setTrustChangeInput] = useState(() => toChangeInput(initial.trustChange))
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    setForm(initial)
+    setIntimacyChangeInput(toChangeInput(initial.intimacyChange))
+    setTrustChangeInput(toChangeInput(initial.trustChange))
+  }, [initial])
 
   useEffect(() => {
     if (!event && !form.personId && people[0]) {
@@ -52,7 +81,11 @@ export default function EventForm({ event, people, onSubmit, onCancel, submitLab
     }
 
     setError('')
-    await onSubmit(form)
+    await onSubmit({
+      ...form,
+      intimacyChange: form.affectRelationship ? parseChangeInput(intimacyChangeInput) : 0,
+      trustChange: form.affectRelationship ? parseChangeInput(trustChangeInput) : 0,
+    })
   }
 
   return (
@@ -104,11 +137,27 @@ export default function EventForm({ event, people, onSubmit, onCancel, submitLab
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
               <label className="grid gap-2">
                 <span className="text-sm font-medium text-ink">❤️ 亲密度变化</span>
-                <input type="number" className="rounded-2xl border border-white bg-white/80 px-4 py-3 outline-none" value={form.intimacyChange} onChange={(event) => update('intimacyChange', Number(event.target.value))} />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  min={0}
+                  step={1}
+                  className="rounded-2xl border border-white bg-white/80 px-4 py-3 outline-none"
+                  value={intimacyChangeInput}
+                  onChange={(event) => setIntimacyChangeInput(sanitizeChangeInput(event.target.value))}
+                />
               </label>
               <label className="grid gap-2">
                 <span className="text-sm font-medium text-ink">🛡 信任度变化</span>
-                <input type="number" className="rounded-2xl border border-white bg-white/80 px-4 py-3 outline-none" value={form.trustChange} onChange={(event) => update('trustChange', Number(event.target.value))} />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  min={0}
+                  step={1}
+                  className="rounded-2xl border border-white bg-white/80 px-4 py-3 outline-none"
+                  value={trustChangeInput}
+                  onChange={(event) => setTrustChangeInput(sanitizeChangeInput(event.target.value))}
+                />
               </label>
             </div>
           </div>

@@ -15,6 +15,12 @@ export function getEdgeWidth(intimacy: number): number {
   return 2.2
 }
 
+export function getSecondaryEdgeWidth(intimacy: number): number {
+  if (intimacy >= 80) return 1.8
+  if (intimacy >= 50) return 1.55
+  return 1.35
+}
+
 export function getEdgeStroke(status: string, emotionalTone: string, intimacy: number): string {
   if (status === '冲突') return '#ef8fa4'
   if (status === '断联') return '#d8cdd0'
@@ -22,6 +28,15 @@ export function getEdgeStroke(status: string, emotionalTone: string, intimacy: n
   if (intimacy >= 80) return '#f5a375'
   if (intimacy >= 60) return '#ef8fae'
   return '#e8bfc8'
+}
+
+export function getSecondaryEdgeStroke(status: string, emotionalTone: string, intimacy: number): string {
+  if (status === '冲突') return '#f1a9b8'
+  if (status === '断联' || status === '暂停') return '#ded2d6'
+  if (emotionalTone === '负向') return '#eeb2ba'
+  if (intimacy >= 80) return '#f2bd91'
+  if (intimacy >= 60) return '#f0a7ba'
+  return '#b8d7f7'
 }
 
 export function getEdgeDashArray(status: string): string | undefined {

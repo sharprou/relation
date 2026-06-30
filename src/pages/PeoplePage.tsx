@@ -5,9 +5,17 @@ import PageShell from '../components/common/PageShell'
 import PersonCard from '../components/common/PersonCard'
 import PersonDetail from '../components/common/PersonDetail'
 import PersonForm, { type PersonFormValue } from '../components/common/PersonForm'
+import RelationshipForm from '../components/common/RelationshipForm'
 import { listEventsByPersonId } from '../features/events/eventService'
 import { addPerson, deletePerson, getPersonById, listPeople, updatePerson } from '../features/people/peopleService'
-import { getRelationshipByPersonId } from '../features/relationships/relationshipService'
+import {
+  addPersonRelationship,
+  deleteRelationship,
+  getRelationshipByPersonId,
+  listRelationshipsByPersonId,
+  updateRelationship,
+  type RelationshipFormInput,
+} from '../features/relationships/relationshipService'
 import { listTags } from '../features/tags/tagService'
 import type { InteractionEvent, Person, Relationship, TagItem } from '../types'
 import PersonAvatar from '../components/common/PersonAvatar'
@@ -22,6 +30,7 @@ import {
 } from '../utils/filter'
 
 type ViewMode = 'list' | 'create' | 'edit'
+type RelationshipFormMode = 'create' | 'edit'
 
 export default function PeoplePage() {
   const params = useParams()
@@ -30,8 +39,12 @@ export default function PeoplePage() {
   const [tags, setTags] = useState<TagItem[]>([])
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
   const [selectedRelationship, setSelectedRelationship] = useState<Relationship | undefined>(undefined)
+  const [selectedRelatedRelationships, setSelectedRelatedRelationships] = useState<Relationship[]>([])
   const [selectedEvents, setSelectedEvents] = useState<InteractionEvent[]>([])
   const [mode, setMode] = useState<ViewMode>('list')
+  const [relationshipFormMode, setRelationshipFormMode] = useState<RelationshipFormMode | null>(null)
+  const [editingRelationship, setEditingRelationship] = useState<Relationship | undefined>(undefined)
+  const [deletingRelationship, setDeletingRelationship] = useState<Relationship | undefined>(undefined)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -49,11 +62,18 @@ export default function PeoplePage() {
     setSelectedPerson(person ?? null)
 
     if (person && !person.isSelf) {
-      setSelectedRelationship(await getRelationshipByPersonId(person.id))
-      setSelectedEvents(await listEventsByPersonId(person.id))
+      const [mainRelationship, events, relatedRelationships] = await Promise.all([
+        getRelationshipByPersonId(person.id),
+        listEventsByPersonId(person.id),
+        listRelationshipsByPersonId(person.id),
+      ])
+      setSelectedRelationship(mainRelationship)
+      setSelectedEvents(events)
+      setSelectedRelatedRelationships(relatedRelationships)
     } else {
       setSelectedRelationship(undefined)
       setSelectedEvents([])
+      setSelectedRelatedRelationships([])
     }
   }
 
@@ -71,8 +91,12 @@ export default function PeoplePage() {
           } else {
             setSelectedPerson(null)
             setSelectedRelationship(undefined)
+            setSelectedRelatedRelationships([])
             setSelectedEvents([])
           }
+          setRelationshipFormMode(null)
+          setEditingRelationship(undefined)
+          setDeletingRelationship(undefined)
           setMode('list')
         }
       } catch (err) {
@@ -120,7 +144,10 @@ export default function PeoplePage() {
     setMode('create')
     setSelectedPerson(null)
     setSelectedRelationship(undefined)
+    setSelectedRelatedRelationships([])
     setSelectedEvents([])
+    setRelationshipFormMode(null)
+    setEditingRelationship(undefined)
   }
 
   const openDetail = async (personId: string) => {
@@ -174,7 +201,11 @@ export default function PeoplePage() {
       setConfirmDelete(false)
       setSelectedPerson(null)
       setSelectedRelationship(undefined)
+      setSelectedRelatedRelationships([])
       setSelectedEvents([])
+      setRelationshipFormMode(null)
+      setEditingRelationship(undefined)
+      setDeletingRelationship(undefined)
       await refresh()
       setMode('list')
     } catch (err) {
@@ -184,6 +215,65 @@ export default function PeoplePage() {
 
   const cancelCreateOrEdit = () => {
     setMode('list')
+  }
+
+  const closeRelationshipForm = () => {
+    setRelationshipFormMode(null)
+    setEditingRelationship(undefined)
+  }
+
+  const openCreateRelationship = () => {
+    if (!selectedPerson || selectedPerson.isSelf) return
+    setEditingRelationship(undefined)
+    setRelationshipFormMode('create')
+  }
+
+  const openEditRelationship = (relationship: Relationship) => {
+    setEditingRelationship(relationship)
+    setRelationshipFormMode('edit')
+  }
+
+  const submitCreateRelationship = async (value: RelationshipFormInput) => {
+    if (!selectedPerson) return
+
+    try {
+      await addPersonRelationship(value)
+      await refresh()
+      await loadPersonDetail(selectedPerson.id)
+      closeRelationshipForm()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '保存关系失败')
+    }
+  }
+
+  const submitEditRelationship = async (value: RelationshipFormInput) => {
+    if (!selectedPerson || !editingRelationship) return
+
+    try {
+      await updateRelationship(editingRelationship.id, value)
+      await refresh()
+      await loadPersonDetail(selectedPerson.id)
+      closeRelationshipForm()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '保存关系失败')
+    }
+  }
+
+  const askDeleteRelationship = (relationship: Relationship) => {
+    setDeletingRelationship(relationship)
+  }
+
+  const confirmDeleteRelationship = async () => {
+    if (!selectedPerson || !deletingRelationship) return
+
+    try {
+      await deleteRelationship(deletingRelationship.id)
+      setDeletingRelationship(undefined)
+      await refresh()
+      await loadPersonDetail(selectedPerson.id)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '删除关系失败')
+    }
   }
 
   return (
@@ -271,7 +361,18 @@ export default function PeoplePage() {
         ) : null}
 
         {mode === 'list' && selectedPerson ? (
-          <PersonDetail person={selectedPerson} relationship={selectedRelationship} events={selectedEvents} onEdit={openEdit} onDelete={askDelete} />
+          <PersonDetail
+            person={selectedPerson}
+            relationship={selectedRelationship}
+            people={people}
+            relatedRelationships={selectedRelatedRelationships}
+            events={selectedEvents}
+            onEdit={openEdit}
+            onDelete={askDelete}
+            onAddRelationship={openCreateRelationship}
+            onEditRelationship={openEditRelationship}
+            onDeleteRelationship={askDeleteRelationship}
+          />
         ) : null}
 
         {mode === 'list' && !selectedPerson && visiblePeople.length > 0 ? (
@@ -313,6 +414,40 @@ export default function PeoplePage() {
           onCancel={() => setConfirmDelete(false)}
           onConfirm={confirmDeletePerson}
         />
+
+        <ConfirmDialog
+          open={Boolean(deletingRelationship)}
+          title="删除关联关系"
+          message="删除后只会移除这两个人之间的关系，不会删除人物资料。是否继续？"
+          confirmLabel="删除关系"
+          cancelLabel="取消"
+          onCancel={() => setDeletingRelationship(undefined)}
+          onConfirm={confirmDeleteRelationship}
+        />
+
+        {relationshipFormMode && selectedPerson ? (
+          <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/30 p-4 sm:items-center">
+            <div className="max-h-[88dvh] w-full max-w-lg overflow-y-auto rounded-[1.6rem] bg-[#fff9fa] p-4 shadow-[0_24px_60px_rgba(80,40,55,0.24)] ring-1 ring-rose/10">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-rose/70">Relationship</p>
+                  <h2 className="mt-1 text-xl font-black text-ink">{relationshipFormMode === 'create' ? '添加关联人物' : '编辑关联关系'}</h2>
+                </div>
+                <button type="button" className="rounded-full bg-white px-3 py-2 text-xs font-bold text-ink shadow-soft ring-1 ring-rose/10" onClick={closeRelationshipForm}>
+                  关闭
+                </button>
+              </div>
+              <RelationshipForm
+                people={regularPeople}
+                currentPersonId={selectedPerson.id}
+                relationship={editingRelationship}
+                submitLabel={relationshipFormMode === 'create' ? '保存关系' : '保存修改'}
+                onCancel={closeRelationshipForm}
+                onSubmit={relationshipFormMode === 'create' ? submitCreateRelationship : submitEditRelationship}
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
     </PageShell>
   )

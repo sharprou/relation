@@ -18,6 +18,8 @@ export interface EventFormInput {
   note?: string
 }
 
+const MAX_RELATIONSHIP_CHANGE = 100
+
 function todayISODate(): string {
   return new Date().toISOString().slice(0, 10)
 }
@@ -36,16 +38,23 @@ export function getDefaultEventInput(personId = ''): EventFormInput {
   }
 }
 
+function sanitizeRelationshipChange(value: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.min(MAX_RELATIONSHIP_CHANGE, Math.max(0, Math.trunc(value)))
+}
+
 function sanitizeEventInput(input: EventFormInput): EventFormInput {
+  const affectRelationship = Boolean(input.affectRelationship)
+
   return {
     personId: input.personId.trim(),
     title: input.title.trim(),
     eventType: input.eventType.trim() || '其他',
     eventDate: input.eventDate.trim() || todayISODate(),
     emotionalTone: input.emotionalTone,
-    affectRelationship: Boolean(input.affectRelationship),
-    intimacyChange: Number.isFinite(input.intimacyChange) ? input.intimacyChange : 0,
-    trustChange: Number.isFinite(input.trustChange) ? input.trustChange : 0,
+    affectRelationship,
+    intimacyChange: affectRelationship ? sanitizeRelationshipChange(input.intimacyChange) : 0,
+    trustChange: affectRelationship ? sanitizeRelationshipChange(input.trustChange) : 0,
     note: (input.note ?? '').trim(),
   }
 }

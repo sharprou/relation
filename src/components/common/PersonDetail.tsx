@@ -3,17 +3,24 @@ import { listEventsByPersonId } from '../../features/events/eventService'
 import type { InteractionEvent, Person, Relationship } from '../../types'
 import { cleanVisibleTags, displayCircle } from '../../utils/display'
 import PersonAvatar from './PersonAvatar'
+import RelationshipCard from './RelationshipCard'
 
 interface PersonDetailProps {
   person: Person
   relationship?: Relationship
+  people?: Person[]
+  relatedRelationships?: Relationship[]
   events?: InteractionEvent[]
   onEdit: () => void
   onDelete: () => void
+  onAddRelationship?: () => void
+  onEditRelationship?: (relationship: Relationship) => void
+  onDeleteRelationship?: (relationship: Relationship) => void
 }
 
-function formatSigned(value: number): string {
-  return `${value >= 0 ? '+' : ''}${value}`
+function formatPositiveChange(value: number): string {
+  if (!Number.isFinite(value)) return '+0'
+  return `+${Math.max(0, Math.trunc(value))}`
 }
 
 function ImpactPills({ event }: { event: InteractionEvent }) {
@@ -23,16 +30,35 @@ function ImpactPills({ event }: { event: InteractionEvent }) {
 
   return (
     <div className="flex flex-wrap gap-2 text-[11px] font-bold">
-      <span className="rounded-full bg-rose/10 px-2.5 py-1 text-rose">❤️ 亲密度 {formatSigned(event.intimacyChange)}</span>
-      <span className="rounded-full bg-lake/10 px-2.5 py-1 text-lake">🛡 信任度 {formatSigned(event.trustChange)}</span>
+      <span className="rounded-full bg-rose/10 px-2.5 py-1 text-rose">❤️ 亲密度 {formatPositiveChange(event.intimacyChange)}</span>
+      <span className="rounded-full bg-lake/10 px-2.5 py-1 text-lake">🛡 信任度 {formatPositiveChange(event.trustChange)}</span>
     </div>
   )
 }
 
-export default function PersonDetail({ person, relationship, events = [], onEdit, onDelete }: PersonDetailProps) {
+export default function PersonDetail({
+  person,
+  relationship,
+  people = [],
+  relatedRelationships = [],
+  events = [],
+  onEdit,
+  onDelete,
+  onAddRelationship,
+  onEditRelationship,
+  onDeleteRelationship,
+}: PersonDetailProps) {
   const isSelf = person.isSelf
   const [timelineEvents, setTimelineEvents] = useState<InteractionEvent[]>(events)
   const visibleTags = cleanVisibleTags(person.tags).slice(0, 8)
+  const peopleById = new Map(people.map((item) => [item.id, item]))
+  const personToPersonRelationships = relatedRelationships
+    .map((item) => {
+      const otherPersonId = item.sourcePersonId === person.id ? item.targetPersonId : item.sourcePersonId
+      const otherPerson = peopleById.get(otherPersonId)
+      return otherPerson && !otherPerson.isSelf && otherPerson.id !== person.id ? { relationship: item, otherPerson } : null
+    })
+    .filter((item): item is { relationship: Relationship; otherPerson: Person } => Boolean(item))
 
   useEffect(() => {
     let active = true
@@ -125,6 +151,40 @@ export default function PersonDetail({ person, relationship, events = [], onEdit
           {person.note || relationship?.note || '暂无备注'}
         </p>
       </section>
+
+      {!isSelf ? (
+        <section className="rounded-[1.5rem] bg-white/82 p-4 shadow-soft ring-1 ring-rose/10">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-extrabold text-ink">关联人物</h3>
+              <p className="mt-1 text-xs font-semibold text-ink/45">记录这个人与其他人的关系</p>
+            </div>
+            {onAddRelationship ? (
+              <button type="button" className="shrink-0 rounded-full bg-[#ffe4eb] px-3 py-2 text-xs font-black text-rose shadow-[0_10px_22px_rgba(218,116,139,0.10)] ring-1 ring-rose/10" onClick={onAddRelationship}>
+                添加关联人物
+              </button>
+            ) : null}
+          </div>
+
+          {personToPersonRelationships.length > 0 ? (
+            <div className="mt-3 space-y-3">
+              {personToPersonRelationships.map(({ relationship: item, otherPerson }) => (
+                <RelationshipCard
+                  key={item.id}
+                  relationship={item}
+                  otherPerson={otherPerson}
+                  onEdit={(target) => onEditRelationship?.(target)}
+                  onDelete={(target) => onDeleteRelationship?.(target)}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 rounded-2xl bg-[#fff6f8] px-4 py-3 text-sm font-semibold text-ink/55 ring-1 ring-rose/10">
+              还没有添加与其他人物的关系
+            </p>
+          )}
+        </section>
+      ) : null}
 
       <section className="rounded-[1.5rem] bg-white/82 p-4 shadow-soft ring-1 ring-violet/10">
         <h3 className="text-sm font-extrabold text-ink">事件时间线</h3>
