@@ -17,14 +17,21 @@ interface NetworkLayoutInput {
   relationships: Relationship[]
 }
 
-const MIN_NODE_DISTANCE = 118
-const CENTER_SAFE_RADIUS = 116
-const SAFE_BOUNDS = {
-  minX: -232,
-  maxX: 232,
-  minY: -178,
-  maxY: 178,
+interface LayoutConfig {
+  radiusX: number
+  radiusY: number
+  minNodeDistance: number
+  centerSafeRadius: number
+  bounds: {
+    minX: number
+    maxX: number
+    minY: number
+    maxY: number
+  }
+  iterations: number
 }
+
+const DOUBLE_RING_THRESHOLD = 10
 
 const PRESET_POSITIONS: Record<number, GraphPoint[]> = {
   1: [{ x: 160, y: -58 }],
@@ -43,6 +50,27 @@ const PRESET_POSITIONS: Record<number, GraphPoint[]> = {
     { x: -166, y: 130 },
     { x: 166, y: 126 },
   ],
+}
+
+function getLayoutConfig(count: number): LayoutConfig {
+  const radiusX = count <= 4 ? 150 : count <= 8 ? 205 : count <= 12 ? 310 : 365
+  const radiusY = count <= 4 ? 170 : count <= 8 ? 220 : count <= 12 ? 335 : 395
+  const minNodeDistance = count <= 4 ? 110 : count <= 8 ? 125 : count <= 12 ? 150 : 155
+  const centerSafeRadius = count <= 4 ? 112 : count <= 8 ? 126 : count <= 12 ? 190 : 210
+
+  return {
+    radiusX,
+    radiusY,
+    minNodeDistance,
+    centerSafeRadius,
+    bounds: {
+      minX: -radiusX - 86,
+      maxX: radiusX + 86,
+      minY: -radiusY - 86,
+      maxY: radiusY + 86,
+    },
+    iterations: count <= 4 ? 26 : count <= 8 ? 36 : 44,
+  }
 }
 
 function relationStrength(relationship?: Relationship): number {
@@ -105,49 +133,110 @@ function buildRelationshipMaps(relationships: Relationship[]): {
   return { relationshipsByPair, degreeByPersonId }
 }
 
-function createInitialPositions(people: Person[], centerPersonId: string, relationshipsByPair: Map<string, Relationship>): Map<string, GraphPoint> {
+function clampToSafeArea(point: GraphPoint, config: LayoutConfig): GraphPoint {
+  const clamped = {
+    x: clamp(point.x, config.bounds.minX, config.bounds.maxX),
+    y: clamp(point.y, config.bounds.minY, config.bounds.maxY),
+  }
+  const centerDistance = Math.hypot(clamped.x, clamped.y)
+
+  if (centerDistance < config.centerSafeRadius) {
+    const direction = normalize(clamped)
+    return {
+      x: clamp(direction.x * config.centerSafeRadius, config.bounds.minX, config.bounds.maxX),
+      y: clamp(direction.y * config.centerSafeRadius, config.bounds.minY, config.bounds.maxY),
+    }
+  }
+
+  return clamped
+}
+
+function placePeopleOnRing(
+  ringPeople: Person[],
+  positions: Map<string, GraphPoint>,
+  options: {
+    centerPersonId: string
+    relationshipsByPair: Map<string, Relationship>
+    degreeByPersonId: Map<string, number>
+    config: LayoutConfig
+    radiusX: number
+    radiusY: number
+    angleOffset: number
+  },
+) {
+  const { centerPersonId, relationshipsByPair, degreeByPersonId, config, radiusX, radiusY, angleOffset } = options
+  const total = Math.max(ringPeople.length, 1)
+
+  ringPeople.forEach((person, index) => {
+    const directRelationship = relationshipsByPair.get(relationKey(centerPersonId, person.id))
+    const strength = relationStrength(directRelationship)
+    const degree = degreeByPersonId.get(person.id) ?? 0
+    const radiusScale = clamp(1 - strength * 0.0009 - Math.min(0.045, degree * 0.005), 0.88, 1)
+    const angle = angleOffset + (index / total) * Math.PI * 2
+
+    positions.set(person.id, clampToSafeArea({
+      x: Math.cos(angle) * radiusX * radiusScale,
+      y: Math.sin(angle) * radiusY * radiusScale,
+    }, config))
+  })
+}
+
+function createInitialPositions(
+  people: Person[],
+  centerPersonId: string,
+  relationshipsByPair: Map<string, Relationship>,
+  degreeByPersonId: Map<string, number>,
+  config: LayoutConfig,
+): Map<string, GraphPoint> {
   const positions = new Map<string, GraphPoint>()
   const preset = PRESET_POSITIONS[people.length]
 
   if (preset) {
     people.forEach((person, index) => {
-      positions.set(person.id, { ...preset[index] })
+      positions.set(person.id, clampToSafeArea({ ...preset[index] }, config))
     })
     return positions
   }
 
-  people.forEach((person, index) => {
-    const directRelationship = relationshipsByPair.get(relationKey(centerPersonId, person.id))
-    const strength = relationStrength(directRelationship)
-    const angle = -Math.PI / 2 + (index / Math.max(people.length, 1)) * Math.PI * 2
-    const radiusX = 194 - strength * 0.22
-    const radiusY = 148 - strength * 0.14
+  if (people.length > DOUBLE_RING_THRESHOLD) {
+    const innerCount = Math.ceil(people.length * 0.55)
+    const outerPeople = people.slice(innerCount)
+    const outerStep = (Math.PI * 2) / Math.max(outerPeople.length, 1)
 
-    positions.set(person.id, {
-      x: Math.cos(angle) * radiusX,
-      y: Math.sin(angle) * radiusY,
+    placePeopleOnRing(people.slice(0, innerCount), positions, {
+      centerPersonId,
+      relationshipsByPair,
+      degreeByPersonId,
+      config,
+      radiusX: config.radiusX * 0.86,
+      radiusY: config.radiusY * 0.86,
+      angleOffset: -Math.PI / 2,
     })
+
+    placePeopleOnRing(outerPeople, positions, {
+      centerPersonId,
+      relationshipsByPair,
+      degreeByPersonId,
+      config,
+      radiusX: config.radiusX,
+      radiusY: config.radiusY,
+      angleOffset: -Math.PI / 2 + outerStep / 2,
+    })
+
+    return positions
+  }
+
+  placePeopleOnRing(people, positions, {
+    centerPersonId,
+    relationshipsByPair,
+    degreeByPersonId,
+    config,
+    radiusX: config.radiusX,
+    radiusY: config.radiusY,
+    angleOffset: -Math.PI / 2,
   })
 
   return positions
-}
-
-function clampToSafeArea(point: GraphPoint): GraphPoint {
-  const clamped = {
-    x: clamp(point.x, SAFE_BOUNDS.minX, SAFE_BOUNDS.maxX),
-    y: clamp(point.y, SAFE_BOUNDS.minY, SAFE_BOUNDS.maxY),
-  }
-  const centerDistance = Math.hypot(clamped.x, clamped.y)
-
-  if (centerDistance < CENTER_SAFE_RADIUS) {
-    const direction = normalize(clamped)
-    return {
-      x: clamp(direction.x * CENTER_SAFE_RADIUS, SAFE_BOUNDS.minX, SAFE_BOUNDS.maxX),
-      y: clamp(direction.y * CENTER_SAFE_RADIUS, SAFE_BOUNDS.minY, SAFE_BOUNDS.maxY),
-    }
-  }
-
-  return clamped
 }
 
 function relaxPositions(
@@ -157,6 +246,7 @@ function relaxPositions(
   centerPersonId: string,
   relationshipsByPair: Map<string, Relationship>,
   degreeByPersonId: Map<string, number>,
+  config: LayoutConfig,
 ): Map<string, GraphPoint> {
   const nextPositions = new Map([...positions].map(([personId, point]) => [personId, { ...point }]))
   const visiblePersonIds = new Set(people.map((person) => person.id))
@@ -164,8 +254,9 @@ function relaxPositions(
     visiblePersonIds.has(relationship.sourcePersonId) &&
     visiblePersonIds.has(relationship.targetPersonId)
   ))
+  const innerRingCount = people.length > DOUBLE_RING_THRESHOLD ? Math.ceil(people.length * 0.55) : people.length
 
-  for (let iteration = 0; iteration < 30; iteration += 1) {
+  for (let iteration = 0; iteration < config.iterations; iteration += 1) {
     const deltas = new Map(people.map((person) => [person.id, { x: 0, y: 0 }]))
 
     for (let index = 0; index < people.length; index += 1) {
@@ -181,10 +272,12 @@ function relaxPositions(
         const dx = pointB.x - pointA.x
         const dy = pointB.y - pointA.y
         const pairDistance = Math.max(0.001, Math.hypot(dx, dy))
-        const requiredDistance = MIN_NODE_DISTANCE + Math.min(18, (degreeByPersonId.get(personA.id) ?? 0) + (degreeByPersonId.get(personB.id) ?? 0))
+        const hasRelationship = relationshipsByPair.has(relationKey(personA.id, personB.id))
+        const degreeBuffer = Math.min(24, ((degreeByPersonId.get(personA.id) ?? 0) + (degreeByPersonId.get(personB.id) ?? 0)) * 2)
+        const requiredDistance = config.minNodeDistance + degreeBuffer + (hasRelationship ? 8 : 0)
 
         if (pairDistance < requiredDistance) {
-          const push = (requiredDistance - pairDistance) * 0.11
+          const push = (requiredDistance - pairDistance) * 0.13
           const direction = { x: dx / pairDistance, y: dy / pairDistance }
           deltaA.x -= direction.x * push
           deltaA.y -= direction.y * push
@@ -202,8 +295,10 @@ function relaxPositions(
       if (!pointA || !pointB || !deltaA || !deltaB) return
 
       const pairDistance = Math.max(0.001, distance(pointA, pointB))
-      const targetDistance = 136 + (100 - relationStrength(relationship)) * 0.22
-      const pull = (pairDistance - targetDistance) * 0.012
+      const relationshipSpacing = people.length > 8 ? 58 : 30
+      const pullStrength = people.length > 8 ? 0.005 : 0.009
+      const targetDistance = config.minNodeDistance + relationshipSpacing + (100 - relationStrength(relationship)) * 0.25
+      const pull = (pairDistance - targetDistance) * pullStrength
       const direction = { x: (pointB.x - pointA.x) / pairDistance, y: (pointB.y - pointA.y) / pairDistance }
 
       deltaA.x += direction.x * pull
@@ -212,7 +307,7 @@ function relaxPositions(
       deltaB.y -= direction.y * pull
     })
 
-    people.forEach((person) => {
+    people.forEach((person, index) => {
       const point = nextPositions.get(person.id)
       const delta = deltas.get(person.id)
       if (!point || !delta) return
@@ -220,10 +315,21 @@ function relaxPositions(
       const directRelationship = relationshipsByPair.get(relationKey(centerPersonId, person.id))
       const strength = relationStrength(directRelationship)
       const degree = degreeByPersonId.get(person.id) ?? 0
-      const targetRadius = clamp(198 - strength * 0.42 - degree * 4, 128, 204)
+      const averageRadius = (config.radiusX + config.radiusY) / 2
+      const ringBias = people.length > DOUBLE_RING_THRESHOLD && index >= innerRingCount
+        ? averageRadius + 42
+        : averageRadius - (people.length > DOUBLE_RING_THRESHOLD ? 24 : 0)
+      const minRadialTarget = people.length > DOUBLE_RING_THRESHOLD
+        ? config.centerSafeRadius + 58
+        : config.centerSafeRadius + 22
+      const targetRadius = clamp(
+        ringBias - strength * 0.34 - degree * 2.8,
+        minRadialTarget,
+        averageRadius + 68,
+      )
       const radialDistance = Math.max(0.001, Math.hypot(point.x, point.y))
       const radialDirection = { x: point.x / radialDistance, y: point.y / radialDistance }
-      const radialPull = (radialDistance - targetRadius) * 0.018
+      const radialPull = (radialDistance - targetRadius) * (people.length > 8 ? 0.028 : 0.018)
 
       delta.x -= radialDirection.x * radialPull
       delta.y -= radialDirection.y * radialPull
@@ -237,7 +343,7 @@ function relaxPositions(
       nextPositions.set(person.id, clampToSafeArea({
         x: point.x + delta.x,
         y: point.y + delta.y,
-      }))
+      }, config))
     })
   }
 
@@ -248,13 +354,14 @@ export function calculateNetworkLayout({ centerPersonId, people, relationships }
   const { relationshipsByPair, degreeByPersonId } = buildRelationshipMaps(relationships)
   const orderedPeople = [...people].sort(stableComparePeople(centerPersonId, relationshipsByPair, degreeByPersonId))
   const directRelationshipsByPersonId = new Map<string, Relationship>()
+  const layoutConfig = getLayoutConfig(orderedPeople.length)
 
   orderedPeople.forEach((person) => {
     const relationship = relationshipsByPair.get(relationKey(centerPersonId, person.id))
     if (relationship) directRelationshipsByPersonId.set(person.id, relationship)
   })
 
-  const initialPositions = createInitialPositions(orderedPeople, centerPersonId, relationshipsByPair)
+  const initialPositions = createInitialPositions(orderedPeople, centerPersonId, relationshipsByPair, degreeByPersonId, layoutConfig)
   const positions = relaxPositions(
     orderedPeople,
     initialPositions,
@@ -262,6 +369,7 @@ export function calculateNetworkLayout({ centerPersonId, people, relationships }
     centerPersonId,
     relationshipsByPair,
     degreeByPersonId,
+    layoutConfig,
   )
 
   return { people: orderedPeople, positions, directRelationshipsByPersonId }

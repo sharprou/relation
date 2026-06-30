@@ -9,6 +9,9 @@ interface RelationshipEdgeData {
   isPrimary: boolean
   lineMetric: GraphLineMetric
   centerPosition: GraphPoint
+  visibleNodeCount?: number
+  visibleEdgeCount?: number
+  showLabel?: boolean
 }
 
 function normalize(point: GraphPoint): GraphPoint {
@@ -50,7 +53,26 @@ function getQuadraticPoint(start: GraphPoint, control: GraphPoint, end: GraphPoi
   }
 }
 
-function getControlPoint(id: string, source: GraphPoint, target: GraphPoint, center: GraphPoint, isPrimary: boolean): GraphPoint {
+function getCenterClearance(visibleNodeCount: number): number {
+  if (visibleNodeCount <= 4) return 106
+  if (visibleNodeCount <= 8) return 118
+  if (visibleNodeCount <= 12) return 130
+  return 145
+}
+
+function getSecondaryCurveOffset(visibleNodeCount: number, nearCenter: boolean): number {
+  const baseOffset = visibleNodeCount <= 4 ? 80 : visibleNodeCount <= 8 ? 115 : visibleNodeCount <= 12 ? 145 : 170
+  return nearCenter ? Math.min(190, baseOffset + 24) : baseOffset
+}
+
+function getControlPoint(
+  id: string,
+  source: GraphPoint,
+  target: GraphPoint,
+  center: GraphPoint,
+  isPrimary: boolean,
+  visibleNodeCount: number,
+): GraphPoint {
   const mid = {
     x: (source.x + target.x) / 2,
     y: (source.y + target.y) / 2,
@@ -73,11 +95,11 @@ function getControlPoint(id: string, source: GraphPoint, target: GraphPoint, cen
     x: mid.x - center.x,
     y: mid.y - center.y,
   }
-  const nearCenter = distancePointToSegment(center, source, target) < 112
+  const nearCenter = distancePointToSegment(center, source, target) < getCenterClearance(visibleNodeCount)
   const outward = Math.hypot(fromCenterToMid.x, fromCenterToMid.y) < 28
     ? { x: normal.x * stableSign(id), y: normal.y * stableSign(id) }
     : normalize(fromCenterToMid)
-  const offset = nearCenter ? 136 : 82
+  const offset = getSecondaryCurveOffset(visibleNodeCount, nearCenter)
 
   return {
     x: mid.x + outward.x * offset,
@@ -94,6 +116,7 @@ export default function RelationshipEdge({
   markerEnd,
   data,
   style,
+  selected = false,
 }: EdgeProps) {
   const edgeData = data as unknown as RelationshipEdgeData | undefined
   const [hovered, setHovered] = useState(false)
@@ -109,13 +132,14 @@ export default function RelationshipEdge({
     )
   }
 
-  const { relationship, isPrimary, lineMetric, centerPosition } = edgeData
+  const { relationship, isPrimary, lineMetric, centerPosition, visibleNodeCount = 0, showLabel = true } = edgeData
   const source = { x: sourceX, y: sourceY }
   const target = { x: targetX, y: targetY }
-  const control = getControlPoint(id, source, target, centerPosition, isPrimary)
+  const control = getControlPoint(id, source, target, centerPosition, isPrimary, visibleNodeCount)
   const path = `M ${source.x},${source.y} Q ${control.x},${control.y} ${target.x},${target.y}`
   const labelPoint = getQuadraticPoint(source, control, target, 0.5)
   const baseStyle = getRelationshipEdgeStyle(relationship, { metric: lineMetric, isPrimary })
+  const shouldShowLabel = !isPrimary && (showLabel || hovered || selected)
   const edgeStyle: CSSProperties = {
     ...style,
     ...baseStyle,
@@ -140,13 +164,14 @@ export default function RelationshipEdge({
         style={edgeStyle}
         interactionWidth={isPrimary ? 20 : 16}
       />
-      {!isPrimary ? (
+      {shouldShowLabel ? (
         <EdgeLabelRenderer>
           <div
-            className="nodrag nopan pointer-events-none rounded-full bg-white/88 px-2 py-0.5 text-[10px] font-black text-ink/58 shadow-[0_8px_18px_rgba(218,116,139,0.08)] ring-1 ring-rose/10 backdrop-blur"
+            className="nodrag nopan pointer-events-none rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-black text-ink/58 shadow-[0_8px_18px_rgba(218,116,139,0.08)] ring-1 ring-rose/10 backdrop-blur"
             style={{
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelPoint.x}px, ${labelPoint.y}px)`,
+              opacity: showLabel ? 1 : 0.94,
             }}
           >
             {relationship.type}

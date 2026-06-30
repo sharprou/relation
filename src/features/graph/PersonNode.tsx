@@ -36,17 +36,11 @@ export default function PersonNode({ data }: NodeProps) {
       >
         <PersonAvatar name={person.name} avatar={person.avatar} seed={person.circle} className="h-full w-full text-xl shadow-none ring-0" />
       </div>
-      <div className={`pointer-events-none absolute top-1/2 min-w-[72px] -translate-y-1/2 ${isRightSide ? 'right-[82px] text-right' : 'left-[82px] text-left'}`}>
+      <div className={`pointer-events-none absolute top-1/2 min-w-[82px] -translate-y-1/2 ${isRightSide ? 'right-[82px] text-right' : 'left-[82px] text-left'}`}>
         <p className="truncate text-[14px] font-black leading-5 text-ink">{person.name}</p>
-        <p className="truncate text-xs font-semibold leading-4 text-ink/55">{relationship?.type ?? (person.relationType || displayCircle(person.circle))}</p>
-        <div className={`mt-1 flex flex-wrap gap-1 ${isRightSide ? 'justify-end' : ''}`}>
-          <span className="inline-flex rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-black text-rose shadow-[0_8px_16px_rgba(239,113,147,0.12)] ring-1 ring-rose/10">
-            ❤ {relationship?.intimacy ?? person.intimacy}
-          </span>
-          <span className="inline-flex rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-black text-lake shadow-[0_8px_16px_rgba(95,142,232,0.10)] ring-1 ring-lake/10">
-            🛡 {relationship?.trust ?? person.trust}
-          </span>
-        </div>
+        <p className={`mt-0.5 inline-flex max-w-[92px] truncate rounded-full bg-white/82 px-2 py-0.5 text-[11px] font-bold leading-4 text-ink/55 shadow-[0_8px_16px_rgba(239,113,147,0.08)] ring-1 ring-rose/10 ${isRightSide ? 'ml-auto' : ''}`}>
+          {relationship?.type ?? (person.relationType || displayCircle(person.circle))}
+        </p>
       </div>
     </button>
   )

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { Background, ReactFlow, type Edge, type Node, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Crosshair } from 'lucide-react'
@@ -33,22 +33,29 @@ interface GraphCanvasProps {
 export default function GraphCanvas({ nodes, edges, lineMetric, onPersonClick, className, emptyHint }: GraphCanvasProps) {
   const reactFlow = useReactFlow()
   const hasPersonNodes = nodes.some((node) => node.type === 'personNode')
+  const personNodeCount = nodes.filter((node) => node.type === 'personNode').length
   const legendItems = getRelationshipLegendItems(lineMetric)
+  const fitViewConfig = useMemo(() => {
+    if (personNodeCount <= 4) return { padding: 0.22, maxZoom: 1.12, yOffset: -82 }
+    if (personNodeCount <= 8) return { padding: 0.28, maxZoom: 1, yOffset: -52 }
+    if (personNodeCount <= 12) return { padding: 0.34, maxZoom: 0.92, yOffset: -24 }
+    return { padding: 0.4, maxZoom: 0.82, yOffset: 0 }
+  }, [personNodeCount])
   const layoutSignature = useMemo(
     () => nodes.map((node) => `${node.id}:${Math.round(node.position.x)},${Math.round(node.position.y)}`).join('|'),
     [nodes],
   )
 
-  const fitGraphView = (duration = 320) => {
-    reactFlow.fitView({ padding: 0.22, duration, maxZoom: 1.12 })
+  const fitGraphView = useCallback((duration = 320) => {
+    reactFlow.fitView({ padding: fitViewConfig.padding, duration, maxZoom: fitViewConfig.maxZoom })
 
-    if (hasPersonNodes) {
+    if (hasPersonNodes && fitViewConfig.yOffset !== 0) {
       window.setTimeout(() => {
         const viewport = reactFlow.getViewport()
-        reactFlow.setViewport({ ...viewport, y: viewport.y - 82 }, { duration: 180 })
+        reactFlow.setViewport({ ...viewport, y: viewport.y + fitViewConfig.yOffset }, { duration: 180 })
       }, duration + 40)
     }
-  }
+  }, [fitViewConfig, hasPersonNodes, reactFlow])
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -56,7 +63,7 @@ export default function GraphCanvas({ nodes, edges, lineMetric, onPersonClick, c
     }, 80)
 
     return () => window.clearTimeout(timeoutId)
-  }, [edges.length, layoutSignature, reactFlow])
+  }, [edges.length, fitGraphView, layoutSignature])
 
   return (
     <div className={clsx('relative h-full min-h-0 overflow-hidden rounded-[1.65rem] bg-[radial-gradient(circle_at_50%_43%,rgba(255,215,224,0.70),transparent_7.5rem),radial-gradient(circle_at_18%_18%,rgba(255,229,233,0.56),transparent_7rem),radial-gradient(circle_at_86%_28%,rgba(255,226,211,0.42),transparent_8rem),linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,249,249,0.76))] shadow-[0_18px_42px_rgba(218,116,139,0.11)] ring-1 ring-rose/10', className)}>
@@ -89,13 +96,16 @@ export default function GraphCanvas({ nodes, edges, lineMetric, onPersonClick, c
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           fitView
-          fitViewOptions={{ padding: 0.22, maxZoom: 1.12 }}
-          minZoom={0.35}
-          maxZoom={1.25}
+          fitViewOptions={{ padding: fitViewConfig.padding, maxZoom: fitViewConfig.maxZoom }}
+          minZoom={0.24}
+          maxZoom={1.35}
           nodesDraggable={false}
           nodesConnectable={false}
-          elementsSelectable={false}
+          elementsSelectable
+          panOnDrag
           panOnScroll
+          zoomOnScroll
+          zoomOnPinch
           onNodeClick={(_, node) => {
             if (node.type === 'personNode' || node.type === 'centerNode') onPersonClick(node.id)
           }}

@@ -42,6 +42,8 @@ function createGraphEdge(
   nodePositions: Map<string, { x: number; y: number }>,
   centerPersonId: string,
   lineMetric: GraphLineMetric,
+  visibleNodeCount: number,
+  visibleEdgeCount: number,
 ): Edge {
   const sourcePosition = nodePositions.get(relationship.sourcePersonId)
   const targetPosition = nodePositions.get(relationship.targetPersonId)
@@ -61,8 +63,9 @@ function createGraphEdge(
     targetHandle: handlePair?.personHandle,
     type: 'relationshipEdge',
     animated: false,
+    selectable: true,
     interactionWidth: isPrimary ? 20 : 10,
-    label: isPrimary ? undefined : relationship.type,
+    label: !isPrimary && visibleEdgeCount <= 6 ? relationship.type : undefined,
     zIndex: isPrimary ? 1 : 0,
     style: getRelationshipEdgeStyle(relationship, { metric: lineMetric, isPrimary }),
     data: {
@@ -70,6 +73,9 @@ function createGraphEdge(
       isPrimary,
       lineMetric,
       centerPosition: { x: 0, y: 0 },
+      visibleNodeCount,
+      visibleEdgeCount,
+      showLabel: !isPrimary && visibleEdgeCount <= 6,
     },
   }
 }
@@ -118,6 +124,7 @@ export async function loadGraphData(options: GraphLoadOptions = {}): Promise<Gra
       type: 'centerNode',
       position: { x: 0, y: 0 },
       origin: [0.5, 0.5],
+      selectable: false,
       data: { person: centerPerson },
     })
   }
@@ -130,20 +137,23 @@ export async function loadGraphData(options: GraphLoadOptions = {}): Promise<Gra
       type: 'personNode',
       position,
       origin: [0.5, 0.5],
+      selectable: false,
       data: { person, relationship, placement: position },
     })
   })
 
   const nodePositions = new Map(nodes.map((node) => [node.id, node.position]))
+  const visibleNodeCount = people.length
+  const visibleEdgeCount = visibleRelationships.length
   const secondaryEdges = centerPerson
     ? visibleRelationships
       .filter((relationship) => !isRelationshipConnectedToPerson(relationship, centerPerson.id))
-      .map((relationship) => createGraphEdge(relationship, nodePositions, centerPerson.id, lineMetric))
+      .map((relationship) => createGraphEdge(relationship, nodePositions, centerPerson.id, lineMetric, visibleNodeCount, visibleEdgeCount))
     : []
   const primaryEdges = centerPerson
     ? visibleRelationships
       .filter((relationship) => isRelationshipConnectedToPerson(relationship, centerPerson.id))
-      .map((relationship) => createGraphEdge(relationship, nodePositions, centerPerson.id, lineMetric))
+      .map((relationship) => createGraphEdge(relationship, nodePositions, centerPerson.id, lineMetric, visibleNodeCount, visibleEdgeCount))
     : []
   const edges = [...secondaryEdges, ...primaryEdges]
 

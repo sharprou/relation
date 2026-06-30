@@ -44,10 +44,6 @@ textarea {
   box-sizing: border-box;
 }
 
-.react-flow__node {
-  transition: transform 260ms ease;
-}
-
 .react-flow__edge-path {
   transition: stroke 180ms ease, stroke-width 180ms ease, opacity 180ms ease;
 }
