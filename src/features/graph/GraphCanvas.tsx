@@ -242,6 +242,7 @@ interface GraphCanvasProps {
   edges: Edge[]
   lineMetric: GraphLineMetric
   onPersonClick: (personId: string) => void
+  onPersonLongPress?: (personId: string) => void
   isIslandView?: boolean
   layoutResetKey?: string
   highlightedPath?: HighlightedPath | null
@@ -265,6 +266,7 @@ export default function GraphCanvas({
   className,
   emptyHint,
   onRelationshipClick,
+  onPersonLongPress,
 }: GraphCanvasProps) {
   const reactFlow = useReactFlow()
   const lastLayoutSignatureRef = useRef('')
@@ -473,6 +475,11 @@ export default function GraphCanvas({
               return
             }
             if (node.type === 'personNode' || node.type === 'centerNode') onPersonClick(node.id)
+          }}
+          onNodeContextMenu={(event, node) => {
+            if (node.type !== 'personNode' && node.type !== 'centerNode') return
+            event.preventDefault()
+            onPersonLongPress?.(node.id)
           }}
           onEdgeClick={(_, edge) => {
             const relationship = (edge.data as { relationship?: Relationship } | undefined)?.relationship

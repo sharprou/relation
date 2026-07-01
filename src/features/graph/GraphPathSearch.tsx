@@ -11,6 +11,8 @@ interface GraphPathSearchProps {
   defaultStartPersonId?: string
   onPathFound: (path: HighlightedPath) => void
   onClearPath: () => void
+  onOpenPersonView?: (personId: string) => void
+  onOpenPersonDetail?: (personId: string) => void
 }
 
 function getPersonLabel(person?: Person): string {
@@ -32,6 +34,8 @@ export default function GraphPathSearch({
   defaultStartPersonId,
   onPathFound,
   onClearPath,
+  onOpenPersonView,
+  onOpenPersonDetail,
 }: GraphPathSearchProps) {
   const [open, setOpen] = useState(false)
   const [startPersonId, setStartPersonId] = useState(defaultStartPersonId ?? '')
@@ -39,6 +43,7 @@ export default function GraphPathSearch({
   const [startKeyword, setStartKeyword] = useState('')
   const [endKeyword, setEndKeyword] = useState('')
   const [resultText, setResultText] = useState('')
+  const [resultPath, setResultPath] = useState<HighlightedPath | null>(null)
   const [resultTone, setResultTone] = useState<'success' | 'hint' | 'empty'>('hint')
   const peopleById = useMemo(() => new Map(people.map((person) => [person.id, person])), [people])
   const orderedPeople = useMemo(() => [
@@ -52,6 +57,7 @@ export default function GraphPathSearch({
 
   const runSearch = () => {
     if (!startPersonId || !endPersonId) {
+      setResultPath(null)
       setResultTone('hint')
       setResultText('先选择起点和终点，再看看这段关系怎么连起来。')
       return
@@ -59,6 +65,7 @@ export default function GraphPathSearch({
 
     if (startPersonId === endPersonId) {
       onClearPath()
+      setResultPath(null)
       setResultTone('hint')
       setResultText('起点和终点是同一个人物。')
       return
@@ -68,20 +75,33 @@ export default function GraphPathSearch({
 
     if (!path) {
       onClearPath()
+      setResultPath(null)
       setResultTone('empty')
       setResultText('他们暂时不在同一个关系圈里。可以先为他们添加共同认识的人，或者建立一条关系。')
       return
     }
 
     onPathFound(path)
+    setResultPath(path)
     setResultTone('success')
     setResultText(`找到 ${path.relationshipIds.length} 段关系：${buildPathText(path, peopleById)}`)
   }
 
   const clearPath = () => {
     onClearPath()
+    setResultPath(null)
     setResultTone('hint')
     setResultText('高亮已清除，可以继续查另一条关系路径。')
+  }
+
+  const openPersonView = (personId: string) => {
+    onOpenPersonView?.(personId)
+    setOpen(false)
+  }
+
+  const openPersonDetail = (personId: string) => {
+    onOpenPersonDetail?.(personId)
+    setOpen(false)
   }
 
   return (
@@ -145,6 +165,39 @@ export default function GraphPathSearch({
               {resultText ? (
                 <div className={`mt-4 rounded-[1.2rem] px-4 py-3 text-sm font-semibold leading-6 ring-1 ${resultTone === 'success' ? 'bg-[#fff0f4] text-rose ring-rose/12' : resultTone === 'empty' ? 'bg-white text-ink/62 ring-rose/10' : 'bg-violetMist/70 text-violet ring-violet/10'}`}>
                   {resultText}
+                </div>
+              ) : null}
+
+              {resultPath ? (
+                <div className="mt-3 grid gap-2">
+                  {resultPath.personIds.map((personId) => {
+                    const person = peopleById.get(personId)
+                    if (!person) return null
+
+                    return (
+                      <div key={personId} className="flex items-center gap-2 rounded-[1rem] bg-white/78 px-2.5 py-2 ring-1 ring-rose/10">
+                        <PersonAvatar name={person.isSelf ? '我' : person.name} avatar={person.avatar} seed={person.circle} className="h-9 w-9 text-sm" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-black text-ink">{person.isSelf ? '我' : person.name}</p>
+                          <p className="truncate text-xs font-semibold text-ink/50">{person.relationType} · {displayCircle(person.circle)}</p>
+                        </div>
+                        <button
+                          type="button"
+                          className="shrink-0 rounded-full bg-[#ffe8ee] px-2.5 py-1.5 text-[11px] font-black text-rose"
+                          onClick={() => openPersonView(personId)}
+                        >
+                          看关系
+                        </button>
+                        <button
+                          type="button"
+                          className="shrink-0 rounded-full bg-white px-2.5 py-1.5 text-[11px] font-black text-ink/62 ring-1 ring-rose/10"
+                          onClick={() => openPersonDetail(personId)}
+                        >
+                          详情
+                        </button>
+                      </div>
+                    )
+                  })}
                 </div>
               ) : null}
             </div>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { InteractionEvent, Person } from '../../types'
-import { getDefaultEventInput, type EventFormInput } from '../../features/events/eventService'
+import { getDefaultEventInput, getEventImages, type EventFormInput } from '../../features/events/eventService'
 import { DEFAULT_EMOTIONAL_TONES, DEFAULT_EVENT_TYPES } from '../../utils/constants'
 import { compressEventImageToDataUrl } from '../../utils/image'
 
@@ -48,7 +48,8 @@ export default function EventForm({ event, people, onSubmit, onCancel, submitLab
       affectRelationship: event.affectRelationship,
       intimacyChange: event.intimacyChange,
       trustChange: event.trustChange,
-      photo: event.photo ?? '',
+      images: getEventImages(event),
+      photo: '',
       note: event.note ?? '',
     }
   }, [event, people])
@@ -57,8 +58,8 @@ export default function EventForm({ event, people, onSubmit, onCancel, submitLab
   const [intimacyChangeInput, setIntimacyChangeInput] = useState(() => toChangeInput(initial.intimacyChange))
   const [trustChangeInput, setTrustChangeInput] = useState(() => toChangeInput(initial.trustChange))
   const [error, setError] = useState('')
-  const [photoBusy, setPhotoBusy] = useState(false)
-  const photoInputRef = useRef<HTMLInputElement>(null)
+  const [imagesBusy, setImagesBusy] = useState(false)
+  const imagesInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setForm(initial)
@@ -76,19 +77,25 @@ export default function EventForm({ event, people, onSubmit, onCancel, submitLab
     setForm((current) => ({ ...current, [key]: value }))
   }
 
-  const handlePhotoChange = async (file?: File) => {
-    if (!file) return
+  const handleImagesChange = async (fileList?: FileList | null) => {
+    const files = Array.from(fileList ?? [])
+    if (files.length === 0) return
 
     try {
-      setPhotoBusy(true)
+      setImagesBusy(true)
       setError('')
-      update('photo', await compressEventImageToDataUrl(file))
+      const nextImages = await Promise.all(files.map((file) => compressEventImageToDataUrl(file)))
+      update('images', [...(form.images ?? []), ...nextImages])
     } catch (err) {
       setError(err instanceof Error ? err.message : '照片处理失败')
     } finally {
-      setPhotoBusy(false)
-      if (photoInputRef.current) photoInputRef.current.value = ''
+      setImagesBusy(false)
+      if (imagesInputRef.current) imagesInputRef.current.value = ''
     }
+  }
+
+  const removeImage = (index: number) => {
+    update('images', (form.images ?? []).filter((_, imageIndex) => imageIndex !== index))
   }
 
   const handleSubmit = async () => {
@@ -157,25 +164,29 @@ export default function EventForm({ event, people, onSubmit, onCancel, submitLab
             <button
               type="button"
               className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-violet shadow-sm ring-1 ring-violet/10 disabled:text-ink/35"
-              disabled={photoBusy}
-              onClick={() => photoInputRef.current?.click()}
+              disabled={imagesBusy}
+              onClick={() => imagesInputRef.current?.click()}
             >
-              {photoBusy ? '处理中' : form.photo ? '更换照片' : '上传照片'}
+              {imagesBusy ? '处理中' : (form.images?.length ?? 0) > 0 ? '追加照片' : '上传照片'}
             </button>
           </div>
-          {form.photo ? (
-            <div className="overflow-hidden rounded-[1.1rem] bg-white shadow-[0_12px_26px_rgba(218,116,139,0.10)] ring-1 ring-violet/10">
-              <img src={form.photo} alt="" className="max-h-56 w-full object-cover" />
-              <button
-                type="button"
-                className="w-full bg-white px-4 py-2 text-xs font-bold text-ink/60"
-                onClick={() => update('photo', '')}
-              >
-                移除照片
-              </button>
+          {(form.images?.length ?? 0) > 0 ? (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {form.images?.map((image, index) => (
+                <div key={`${image.slice(0, 28)}-${index}`} className="relative overflow-hidden rounded-[1.1rem] bg-white shadow-[0_12px_26px_rgba(218,116,139,0.10)] ring-1 ring-violet/10">
+                  <img src={image} alt="" className="aspect-square w-full object-cover" />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-2 rounded-full bg-white/92 px-2 py-1 text-[11px] font-black text-rose shadow-sm ring-1 ring-rose/10"
+                    onClick={() => removeImage(index)}
+                  >
+                    移除
+                  </button>
+                </div>
+              ))}
             </div>
           ) : null}
-          <input ref={photoInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => handlePhotoChange(event.target.files?.[0])} />
+          <input ref={imagesInputRef} type="file" multiple accept="image/*" className="hidden" onChange={(event) => handleImagesChange(event.target.files)} />
         </div>
 
         <label className="flex items-center justify-between rounded-2xl bg-paper px-4 py-3">

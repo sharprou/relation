@@ -82,6 +82,7 @@ export default function PeoplePage() {
   useEffect(() => {
     let active = true
     const personId = params.personId ?? searchParams.get('personId')
+    const shouldOpenEdit = searchParams.get('mode') === 'edit'
 
     const run = async () => {
       try {
@@ -90,16 +91,17 @@ export default function PeoplePage() {
         if (active) {
           if (personId) {
             await loadPersonDetail(personId)
+            setMode(shouldOpenEdit ? 'edit' : 'list')
           } else {
             setSelectedPerson(null)
             setSelectedRelationship(undefined)
             setSelectedRelatedRelationships([])
             setSelectedEvents([])
+            setMode('list')
           }
           setRelationshipFormMode(null)
           setEditingRelationship(undefined)
           setDeletingRelationship(undefined)
-          setMode('list')
         }
       } catch (err) {
         if (active) {

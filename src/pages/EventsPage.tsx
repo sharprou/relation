@@ -239,22 +239,27 @@ export default function EventsPage() {
         ) : null}
 
         {mode === 'list' && filteredEvents.length > 0 ? (
-          <div className="relative space-y-4 pl-[62px] before:absolute before:left-[48px] before:top-2 before:h-[calc(100%-1rem)] before:w-px before:bg-violet/18">
+          <div className="space-y-4">
             {filteredEvents.map((event) => {
               const date = formatTimelineDate(event.eventDate)
               return (
-                <div key={event.id} className="relative">
-                  <div className="absolute -left-[62px] top-2 w-12 text-right">
-                    <p className="text-sm font-extrabold text-ink">{date.day}</p>
-                    <p className="text-xs font-semibold text-ink/45">{date.week}</p>
+                <div key={event.id} className="grid grid-cols-[70px_minmax(0,1fr)] gap-x-3 sm:grid-cols-[76px_minmax(0,1fr)] sm:gap-x-4">
+                  <div className="relative min-h-full pr-4 text-right">
+                    <div className="pt-2">
+                      <p className="whitespace-nowrap text-sm font-extrabold text-ink">{date.day}</p>
+                      <p className="whitespace-nowrap text-xs font-semibold text-ink/45">{date.week}</p>
+                    </div>
+                    <span className="absolute bottom-[-1rem] right-0 top-2 w-px bg-violet/18" />
+                    <span className="absolute right-[-5px] top-4 h-2.5 w-2.5 rounded-full bg-violet ring-4 ring-white" />
                   </div>
-                  <span className="absolute -left-[18px] top-4 h-2.5 w-2.5 rounded-full bg-violet ring-4 ring-white" />
-                  <EventCard
-                    event={event}
-                    person={peopleById.get(event.personId)}
-                    onEdit={(targetEvent) => { setEditingEvent(targetEvent); setMode('edit') }}
-                    onDelete={setDeletingEvent}
-                  />
+                  <div className="min-w-0">
+                    <EventCard
+                      event={event}
+                      person={peopleById.get(event.personId)}
+                      onEdit={(targetEvent) => { setEditingEvent(targetEvent); setMode('edit') }}
+                      onDelete={setDeletingEvent}
+                    />
+                  </div>
                 </div>
               )
             })}

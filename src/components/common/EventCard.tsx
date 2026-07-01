@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { getEventImages } from '../../features/events/eventService'
 import type { InteractionEvent, Person } from '../../types'
 import PersonAvatar from './PersonAvatar'
 
@@ -16,6 +18,13 @@ function formatSignedChange(value: number): string {
 
 export default function EventCard({ event, person, onEdit, onDelete }: EventCardProps) {
   const note = event.note ?? ''
+  const images = getEventImages(event)
+  const visibleImages = images.slice(0, 3)
+  const imageGridClass = visibleImages.length === 1 ? 'grid-cols-1' : visibleImages.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null)
+  const previewImage = previewIndex === null ? null : images[previewIndex]
+  const showPreviousImage = () => setPreviewIndex((current) => current === null ? null : (current - 1 + images.length) % images.length)
+  const showNextImage = () => setPreviewIndex((current) => current === null ? null : (current + 1) % images.length)
 
   return (
     <article className="rounded-[1.35rem] bg-white/76 p-4 shadow-soft ring-1 ring-violet/10">
@@ -34,12 +43,24 @@ export default function EventCard({ event, person, onEdit, onDelete }: EventCard
 
       {note ? <p className="mt-3 line-clamp-2 text-sm leading-6 text-ink/65">{note}</p> : null}
 
-      {event.photo ? (
-        <img
-          src={event.photo}
-          alt=""
-          className="mt-3 max-h-56 w-full rounded-[1.1rem] object-cover shadow-[0_12px_26px_rgba(218,116,139,0.10)] ring-1 ring-violet/10"
-        />
+      {visibleImages.length > 0 ? (
+        <div className={`mt-3 grid gap-2 ${imageGridClass}`}>
+          {visibleImages.map((image, index) => (
+            <button
+              key={`${image.slice(0, 28)}-${index}`}
+              type="button"
+              className="group relative min-w-0 overflow-hidden rounded-[1.1rem] bg-paper shadow-[0_12px_26px_rgba(218,116,139,0.10)] ring-1 ring-violet/10"
+              onClick={() => setPreviewIndex(index)}
+            >
+              <img src={image} alt="" className={`${visibleImages.length === 1 ? 'h-40' : 'aspect-square'} w-full object-cover transition duration-200 group-hover:scale-[1.02]`} />
+              {index === 2 && images.length > 3 ? (
+                <span className="absolute inset-0 grid place-items-center bg-ink/42 text-lg font-black text-white">
+                  +{images.length - 3}
+                </span>
+              ) : null}
+            </button>
+          ))}
+        </div>
       ) : null}
 
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-bold">
@@ -61,6 +82,31 @@ export default function EventCard({ event, person, onEdit, onDelete }: EventCard
           删除
         </button>
       </div>
+
+      {previewImage ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-ink/68 p-4" role="dialog" aria-modal="true" onClick={() => setPreviewIndex(null)}>
+          <div className="relative w-full max-w-3xl" onClick={(event) => event.stopPropagation()}>
+            <img src={previewImage} alt="" className="max-h-[78vh] w-full rounded-[1.35rem] object-contain bg-white shadow-soft ring-1 ring-white/40" />
+            <button
+              type="button"
+              className="absolute right-3 top-3 rounded-full bg-white/92 px-3 py-1.5 text-xs font-black text-ink shadow-soft"
+              onClick={() => setPreviewIndex(null)}
+            >
+              关闭
+            </button>
+            {images.length > 1 ? (
+              <div className="mt-3 flex justify-center gap-3">
+                <button type="button" className="rounded-full bg-white/92 px-4 py-2 text-xs font-black text-violet shadow-soft" onClick={showPreviousImage}>
+                  上一张
+                </button>
+                <button type="button" className="rounded-full bg-white/92 px-4 py-2 text-xs font-black text-violet shadow-soft" onClick={showNextImage}>
+                  下一张
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </article>
   )
 }

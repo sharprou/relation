@@ -7,7 +7,9 @@ import GraphHelpDialog from '../features/graph/GraphHelpDialog'
 import { loadGraphData, type GraphData } from '../features/graph/graphService'
 import GraphMetricToggle from '../features/graph/GraphMetricToggle'
 import GraphPathSearch from '../features/graph/GraphPathSearch'
+import GraphPersonActionSheet from '../features/graph/GraphPersonActionSheet'
 import GraphPerspectiveSelector from '../features/graph/GraphPerspectiveSelector'
+import GraphViewToolbar from '../features/graph/GraphViewToolbar'
 import type { GraphLineMetric } from '../features/graph/graphStyle'
 import RelationshipDetailSheet from '../features/graph/RelationshipDetailSheet'
 import type { HighlightedPath } from '../features/graph/pathSearch'
@@ -32,6 +34,10 @@ const CORE_CIRCLE = '核心圈'
 const MIN_INTIMACY = '60'
 type GraphNetworkDepth = 'direct' | 'all'
 type GraphViewMode = 'mine' | 'person' | 'islands'
+type GraphViewState = {
+  viewMode: GraphViewMode
+  centerPersonId?: string
+}
 
 export default function GraphPage() {
   const navigate = useNavigate()
@@ -44,11 +50,13 @@ export default function GraphPage() {
   const [lineMetric, setLineMetric] = useState<GraphLineMetric>('intimacy')
   const [networkDepth, setNetworkDepth] = useState<GraphNetworkDepth>('direct')
   const [graphViewMode, setGraphViewMode] = useState<GraphViewMode>('mine')
+  const [viewHistory, setViewHistory] = useState<GraphViewState[]>([])
   const [highlightedPath, setHighlightedPath] = useState<HighlightedPath | null>(null)
   const [pathViewHint, setPathViewHint] = useState('')
   const [showGraphHelp, setShowGraphHelp] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [selectedRelationship, setSelectedRelationship] = useState<Relationship | null>(null)
+  const [actionPerson, setActionPerson] = useState<Person | null>(null)
   const [editingRelationship, setEditingRelationship] = useState<Relationship | undefined>(undefined)
   const [deletingRelationship, setDeletingRelationship] = useState<Relationship | undefined>(undefined)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
@@ -115,6 +123,13 @@ export default function GraphPage() {
   const hasGraphPeople = Boolean(graphData && graphData.people.length > 0)
   const hasDataFilters = hasActivePeopleFilters(filters) || networkDepth === 'all'
   const hasFilters = hasDataFilters || graphViewMode === 'islands'
+  const currentViewState = useMemo<GraphViewState>(() => ({
+    viewMode: graphViewMode,
+    centerPersonId: graphViewMode === 'islands' ? undefined : graphData?.centerPerson?.id ?? centerPersonId ?? selfPersonId,
+  }), [centerPersonId, graphData?.centerPerson?.id, graphViewMode, selfPersonId])
+  const currentCenterPerson = graphViewMode === 'islands'
+    ? undefined
+    : graphData?.centerPerson ?? allPeople.find((person) => person.id === currentViewState.centerPersonId)
   const currentCenterLabel = graphData?.centerPerson?.isSelf
     ? '我'
     : graphData?.centerPerson?.name ?? '中心人物'
@@ -127,6 +142,7 @@ export default function GraphPage() {
     setFilters(EMPTY_PEOPLE_FILTERS)
     setNetworkDepth('direct')
     setGraphViewMode('mine')
+    setViewHistory([])
   }
 
   const clearHighlightedPath = () => {
@@ -155,10 +171,56 @@ export default function GraphPage() {
     }))
   }
 
-  const showMineView = () => {
-    setGraphViewMode('mine')
+  const isSameGraphView = (viewA: GraphViewState, viewB: GraphViewState) => (
+    viewA.viewMode === viewB.viewMode && (viewA.centerPersonId ?? '') === (viewB.centerPersonId ?? '')
+  )
+
+  const switchGraphView = (nextView: GraphViewState, options: { pushHistory?: boolean; clearHistory?: boolean } = {}) => {
+    if (options.clearHistory) {
+      setViewHistory([])
+    } else if (options.pushHistory && !isSameGraphView(currentViewState, nextView)) {
+      setViewHistory((history) => [...history, currentViewState])
+    }
+
+    setGraphViewMode(nextView.viewMode)
     setNetworkDepth('direct')
-    if (selfPersonId) setCenterPersonId(selfPersonId)
+    if (nextView.centerPersonId) setCenterPersonId(nextView.centerPersonId)
+    if (nextView.viewMode === 'islands') setCenterPersonId('')
+
+    if (highlightedPath) {
+      setHighlightedPath(null)
+      setPathViewHint('已切换视角，路径高亮已清除')
+    } else {
+      setPathViewHint('')
+    }
+  }
+
+  const enterPersonView = (personId: string, options: { pushHistory?: boolean; clearHistory?: boolean } = {}) => {
+    if (!personId) return
+    switchGraphView({
+      viewMode: personId === selfPersonId ? 'mine' : 'person',
+      centerPersonId: personId,
+    }, options)
+  }
+
+  const goBackGraphView = () => {
+    setViewHistory((history) => {
+      const previousView = history.at(-1)
+      if (!previousView) return history
+
+      setGraphViewMode(previousView.viewMode)
+      setNetworkDepth('direct')
+      if (previousView.centerPersonId) setCenterPersonId(previousView.centerPersonId)
+      if (previousView.viewMode === 'islands') setCenterPersonId('')
+      clearHighlightedPath()
+
+      return history.slice(0, -1)
+    })
+  }
+
+  const showMineView = () => {
+    if (!selfPersonId) return
+    enterPersonView(selfPersonId, { clearHistory: true })
   }
 
   const toggleAllNetwork = () => {
@@ -167,23 +229,35 @@ export default function GraphPage() {
   }
 
   const showAllIslands = () => {
-    setGraphViewMode('islands')
-    setNetworkDepth('direct')
+    switchGraphView({ viewMode: 'islands' }, { clearHistory: true })
   }
 
   const handlePerspectiveChange = (personId: string) => {
-    setCenterPersonId(personId)
-    setGraphViewMode(personId === selfPersonId ? 'mine' : 'person')
-    setNetworkDepth('direct')
+    enterPersonView(personId, { pushHistory: true })
   }
 
   const handleGraphPersonClick = (personId: string) => {
-    if (graphViewMode === 'islands') {
-      handlePerspectiveChange(personId)
-      return
-    }
+    enterPersonView(personId, { pushHistory: true })
+  }
 
+  const handleGraphPersonLongPress = (personId: string) => {
+    const person = allPeople.find((item) => item.id === personId)
+    if (person) setActionPerson(person)
+  }
+
+  const openActionPersonGraph = (personId: string) => {
+    setActionPerson(null)
+    enterPersonView(personId, { pushHistory: true })
+  }
+
+  const openPersonDetail = (personId: string) => {
+    setActionPerson(null)
     navigate(`/people/${personId}`)
+  }
+
+  const editPerson = (personId: string) => {
+    setActionPerson(null)
+    navigate(`/people/${personId}?mode=edit`)
   }
 
   const handlePathFound = (path: HighlightedPath) => {
@@ -196,8 +270,8 @@ export default function GraphPage() {
 
     if (!isFullyVisible) {
       setFilters(EMPTY_PEOPLE_FILTERS)
-      setGraphViewMode('islands')
-      setNetworkDepth('direct')
+      switchGraphView({ viewMode: 'islands' }, { pushHistory: true })
+      setHighlightedPath(path)
       setPathViewHint('路径不完全在当前视图中，已切换到全部关系岛查看。')
       return
     }
@@ -290,6 +364,15 @@ export default function GraphPage() {
         </div>
       </header>
 
+      <GraphViewToolbar
+        viewMode={graphViewMode}
+        centerPerson={currentCenterPerson}
+        canGoBack={viewHistory.length > 0}
+        onBack={goBackGraphView}
+        onShowMine={showMineView}
+        onShowIslands={showAllIslands}
+      />
+
       <div
         data-testid="graph-filter-bar"
         className="-mx-4 min-w-0 max-w-[calc(100%+2rem)] shrink-0 touch-pan-x overflow-x-auto overscroll-x-contain px-4 pb-0.5 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden"
@@ -310,6 +393,8 @@ export default function GraphPage() {
             defaultStartPersonId={graphData?.centerPerson?.id || centerPersonId || selfPersonId}
             onPathFound={handlePathFound}
             onClearPath={clearHighlightedPath}
+            onOpenPersonView={(personId) => enterPersonView(personId, { pushHistory: true })}
+            onOpenPersonDetail={openPersonDetail}
           />
           <GraphMetricToggle value={lineMetric} onChange={setLineMetric} />
           <FilterChip active={graphViewMode === 'mine'} label="我的关系" onClick={showMineView} />
@@ -374,6 +459,7 @@ export default function GraphPage() {
               ].join('|')}
               emptyHint={emptyHint}
               onPersonClick={handleGraphPersonClick}
+              onPersonLongPress={handleGraphPersonLongPress}
               onRelationshipClick={setSelectedRelationship}
             />
           </ReactFlowProvider>
@@ -383,6 +469,16 @@ export default function GraphPage() {
           正在准备关系图谱
         </div>
       )}
+
+      {actionPerson ? (
+        <GraphPersonActionSheet
+          person={actionPerson}
+          onClose={() => setActionPerson(null)}
+          onViewGraph={openActionPersonGraph}
+          onOpenDetail={openPersonDetail}
+          onEdit={editPerson}
+        />
+      ) : null}
 
       {selectedRelationship && !editingRelationship ? (
         <RelationshipDetailSheet

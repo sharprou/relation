@@ -15,6 +15,7 @@ export interface EventFormInput {
   affectRelationship: boolean
   intimacyChange: number
   trustChange: number
+  images?: string[]
   photo?: string
   note?: string
 }
@@ -35,9 +36,28 @@ export function getDefaultEventInput(personId = ''): EventFormInput {
     affectRelationship: false,
     intimacyChange: 0,
     trustChange: 0,
+    images: [],
     photo: '',
     note: '',
   }
+}
+
+export function normalizeEventImages(input: unknown): string[] {
+  const values = Array.isArray(input) ? input : input ? [input] : []
+  const seen = new Set<string>()
+
+  return values
+    .filter((value): value is string => typeof value === 'string')
+    .map((value) => value.trim())
+    .filter((value) => {
+      if (!value || seen.has(value)) return false
+      seen.add(value)
+      return true
+    })
+}
+
+export function getEventImages(event: Pick<InteractionEvent, 'images' | 'photo' | 'image'>): string[] {
+  return normalizeEventImages([...(event.images ?? []), event.photo, event.image])
 }
 
 function sanitizeRelationshipChange(value: number): number {
@@ -47,6 +67,7 @@ function sanitizeRelationshipChange(value: number): number {
 
 function sanitizeEventInput(input: EventFormInput): EventFormInput {
   const affectRelationship = Boolean(input.affectRelationship)
+  const images = normalizeEventImages([...(input.images ?? []), input.photo])
 
   return {
     personId: input.personId.trim(),
@@ -57,7 +78,8 @@ function sanitizeEventInput(input: EventFormInput): EventFormInput {
     affectRelationship,
     intimacyChange: affectRelationship ? sanitizeRelationshipChange(input.intimacyChange) : 0,
     trustChange: affectRelationship ? sanitizeRelationshipChange(input.trustChange) : 0,
-    photo: (input.photo ?? '').trim(),
+    images,
+    photo: '',
     note: (input.note ?? '').trim(),
   }
 }

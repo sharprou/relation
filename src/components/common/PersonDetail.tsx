@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { listEventsByPersonId } from '../../features/events/eventService'
+import { getEventImages, listEventsByPersonId } from '../../features/events/eventService'
 import type { InteractionEvent, Person, Relationship } from '../../types'
 import { cleanVisibleTags, displayCircle } from '../../utils/display'
 import PersonAvatar from './PersonAvatar'
@@ -227,7 +227,11 @@ export default function PersonDetail({
           <p className="mt-3 rounded-2xl bg-paper/75 px-4 py-3 text-sm font-semibold text-ink/55">“我”的事件会从其他人物的互动里慢慢积累。</p>
         ) : timelineEvents.length > 0 ? (
           <div className="relative mt-4 space-y-3 pl-5 before:absolute before:left-1.5 before:top-2 before:h-[calc(100%-0.5rem)] before:w-px before:bg-violet/18">
-            {timelineEvents.map((event) => (
+            {timelineEvents.map((event) => {
+              const eventImages = getEventImages(event)
+              const firstImage = eventImages[0]
+
+              return (
               <article key={event.id} className="relative rounded-2xl bg-paper/85 px-4 py-3">
                 <span className="absolute -left-[1.05rem] top-4 h-2.5 w-2.5 rounded-full bg-violet ring-4 ring-white" />
                 <div className="flex items-start justify-between gap-3">
@@ -238,9 +242,9 @@ export default function PersonDetail({
                   <span className="shrink-0 rounded-full bg-violetMist px-2.5 py-1 text-[11px] font-bold text-violet">{event.emotionalTone}</span>
                 </div>
                 {event.note ? <p className="mt-2 line-clamp-2 text-xs leading-5 text-ink/60">{event.note}</p> : null}
-                {event.photo ? (
+                {firstImage ? (
                   <img
-                    src={event.photo}
+                    src={firstImage}
                     alt=""
                     className="mt-2 max-h-44 w-full rounded-[1rem] object-cover shadow-[0_10px_20px_rgba(218,116,139,0.10)] ring-1 ring-violet/10"
                   />
@@ -249,7 +253,8 @@ export default function PersonDetail({
                   <ImpactPills event={event} />
                 </div>
               </article>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <p className="mt-3 rounded-2xl bg-paper/75 px-4 py-3 text-sm font-semibold text-ink/55">这个人物还没有事件，可以从一次聊天、见面或合作开始记录。</p>

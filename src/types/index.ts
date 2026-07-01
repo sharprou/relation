@@ -47,7 +47,9 @@ export interface InteractionEvent {
   affectRelationship: boolean
   intimacyChange: number
   trustChange: number
+  images?: string[]
   photo?: string
+  image?: string
   note?: string
   createdAt: string
   updatedAt: string

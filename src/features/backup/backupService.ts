@@ -17,6 +17,10 @@ function hasOptionalStringField(value: unknown, field: string): boolean {
   return isRecord(value) && (value[field] === undefined || typeof value[field] === 'string')
 }
 
+function hasOptionalStringArrayField(value: unknown, field: string): boolean {
+  return isRecord(value) && (value[field] === undefined || isStringArray(value[field]))
+}
+
 function hasNumberField(value: unknown, field: string): boolean {
   return isRecord(value) && typeof value[field] === 'number'
 }
@@ -80,7 +84,9 @@ function isInteractionEvent(value: unknown): value is InteractionEvent {
     hasBooleanField(value, 'affectRelationship') &&
     hasNumberField(value, 'intimacyChange') &&
     hasNumberField(value, 'trustChange') &&
+    hasOptionalStringArrayField(value, 'images') &&
     hasOptionalStringField(value, 'photo') &&
+    hasOptionalStringField(value, 'image') &&
     hasStringField(value, 'createdAt') &&
     hasStringField(value, 'updatedAt')
   )
