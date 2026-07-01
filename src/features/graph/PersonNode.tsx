@@ -1,4 +1,5 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { useRef, type PointerEvent } from 'react'
 import type { Person, Relationship } from '../../types'
 import PersonAvatar from '../../components/common/PersonAvatar'
 import { displayCircle } from '../../utils/display'
@@ -30,16 +31,48 @@ export default function PersonNode({ data }: NodeProps) {
   const labelPlacement = data.labelPlacement as PersonNodeLabelPlacement | undefined
   const isPathHighlighted = Boolean(data.isPathHighlighted)
   const isDimmed = Boolean(data.isDimmed)
+  const onLongPress = data.onLongPress as ((personId: string) => void) | undefined
+  const longPressTimerRef = useRef<number | undefined>(undefined)
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
   const color = getCircleColor(person.circle)
   const fallbackPlacement = (placement?.x ?? -1) > 0 ? 'left' : 'right'
   const resolvedPlacement = labelPlacement ?? fallbackPlacement
   const alignsRight = resolvedPlacement.includes('left') || resolvedPlacement === 'left'
+  const clearLongPress = () => {
+    if (longPressTimerRef.current !== undefined) {
+      window.clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = undefined
+    }
+  }
+  const startLongPress = (event: PointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0) return
+    pointerStartRef.current = { x: event.clientX, y: event.clientY }
+    clearLongPress()
+    longPressTimerRef.current = window.setTimeout(() => {
+      onLongPress?.(person.id)
+      clearLongPress()
+    }, 520)
+  }
+  const cancelLongPressOnMove = (event: PointerEvent<HTMLButtonElement>) => {
+    const start = pointerStartRef.current
+    if (!start) return
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 9) clearLongPress()
+  }
 
   return (
     <button
       type="button"
       className="group relative h-[74px] w-[74px] cursor-grab rounded-full p-0 text-left transition hover:-translate-y-0.5 active:cursor-grabbing"
       style={{ opacity: isDimmed ? 0.38 : 1 }}
+      onPointerDown={startLongPress}
+      onPointerMove={cancelLongPressOnMove}
+      onPointerUp={clearLongPress}
+      onPointerCancel={clearLongPress}
+      onPointerLeave={clearLongPress}
+      onContextMenu={(event) => {
+        event.preventDefault()
+        onLongPress?.(person.id)
+      }}
     >
       {handlePositions.map(([id, position]) => (
         <Handle key={`target-${id}`} id={id} type="target" position={position} className={handleClass} />

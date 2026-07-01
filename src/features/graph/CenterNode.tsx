@@ -1,4 +1,5 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { useRef, type PointerEvent } from 'react'
 import type { Person } from '../../types'
 import PersonAvatar from '../../components/common/PersonAvatar'
 
@@ -15,6 +16,32 @@ export default function CenterNode({ data }: NodeProps) {
   const fallbackName = person.isSelf ? '我' : person.name
   const isPathHighlighted = Boolean(data.isPathHighlighted)
   const isDimmed = Boolean(data.isDimmed)
+  const onLongPress = data.onLongPress as ((personId: string) => void) | undefined
+  const longPressTimerRef = useRef<number | undefined>(undefined)
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
+
+  const clearLongPress = () => {
+    if (longPressTimerRef.current !== undefined) {
+      window.clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = undefined
+    }
+  }
+
+  const startLongPress = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return
+    pointerStartRef.current = { x: event.clientX, y: event.clientY }
+    clearLongPress()
+    longPressTimerRef.current = window.setTimeout(() => {
+      onLongPress?.(person.id)
+      clearLongPress()
+    }, 520)
+  }
+
+  const cancelLongPressOnMove = (event: PointerEvent<HTMLDivElement>) => {
+    const start = pointerStartRef.current
+    if (!start) return
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 9) clearLongPress()
+  }
 
   return (
     <div
@@ -24,6 +51,15 @@ export default function CenterNode({ data }: NodeProps) {
         boxShadow: isPathHighlighted
           ? '0 0 0 9px rgba(255,220,228,0.78), 0 20px 46px rgba(239,113,147,0.28)'
           : undefined,
+      }}
+      onPointerDown={startLongPress}
+      onPointerMove={cancelLongPressOnMove}
+      onPointerUp={clearLongPress}
+      onPointerCancel={clearLongPress}
+      onPointerLeave={clearLongPress}
+      onContextMenu={(event) => {
+        event.preventDefault()
+        onLongPress?.(person.id)
       }}
     >
       <span className={`pointer-events-none absolute inset-[-10px] -z-10 rounded-full blur-xl ${isPathHighlighted ? 'bg-[#ffd4df]/70' : 'bg-[#ffd9e2]/35'}`} />

@@ -30,7 +30,6 @@ import { EMPTY_PEOPLE_FILTERS, getUniqueOptions, hasActivePeopleFilters, type Pe
 import ConfirmDialog from '../components/common/ConfirmDialog'
 import RelationshipForm from '../components/common/RelationshipForm'
 
-const CORE_CIRCLE = '核心圈'
 const MIN_INTIMACY = '60'
 type GraphNetworkDepth = 'direct' | 'all'
 type GraphViewMode = 'mine' | 'person' | 'islands'
@@ -122,7 +121,7 @@ export default function GraphPage() {
 
   const hasGraphPeople = Boolean(graphData && graphData.people.length > 0)
   const hasDataFilters = hasActivePeopleFilters(filters) || networkDepth === 'all'
-  const hasFilters = hasDataFilters || graphViewMode === 'islands'
+  const hasFilters = hasDataFilters
   const currentViewState = useMemo<GraphViewState>(() => ({
     viewMode: graphViewMode,
     centerPersonId: graphViewMode === 'islands' ? undefined : graphData?.centerPerson?.id ?? centerPersonId ?? selfPersonId,
@@ -155,13 +154,6 @@ export default function GraphPage() {
 
     event.currentTarget.scrollLeft += event.deltaY
     event.preventDefault()
-  }
-
-  const toggleCoreCircle = () => {
-    setFilters((current) => ({
-      ...current,
-      circle: current.circle === CORE_CIRCLE ? '' : CORE_CIRCLE,
-    }))
   }
 
   const toggleMinIntimacy = () => {
@@ -397,10 +389,7 @@ export default function GraphPage() {
             onOpenPersonDetail={openPersonDetail}
           />
           <GraphMetricToggle value={lineMetric} onChange={setLineMetric} />
-          <FilterChip active={graphViewMode === 'mine'} label="我的关系" onClick={showMineView} />
-          <FilterChip active={graphViewMode === 'islands'} label="全部关系岛" onClick={showAllIslands} />
           <FilterChip active={networkDepth === 'all' && graphViewMode !== 'islands'} label="多级人脉" onClick={toggleAllNetwork} />
-          <FilterChip active={filters.circle === CORE_CIRCLE} label="核心圈" onClick={toggleCoreCircle} />
           <FilterChip active={filters.minIntimacy === MIN_INTIMACY} label="亲密度 60+" onClick={toggleMinIntimacy} />
           {hasFilters ? <FilterChip active={false} label="清空" onClick={clearFilters} /> : null}
         </div>

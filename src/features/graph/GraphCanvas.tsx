@@ -31,6 +31,7 @@ interface ForceNodeData {
     x: number
     y: number
   }
+  onLongPress?: (personId: string) => void
 }
 
 const FORCE_MAX_FRAMES = 180
@@ -60,6 +61,7 @@ function toInteractiveNodes(nodes: Node[], previousNodes?: Node[]): Node[] {
       data: {
         ...node.data,
         layoutAnchor,
+        onLongPress: previousData?.onLongPress,
       },
       draggable: true,
       selectable: true,
@@ -269,6 +271,7 @@ export default function GraphCanvas({
   onPersonLongPress,
 }: GraphCanvasProps) {
   const reactFlow = useReactFlow()
+  const suppressClickUntilRef = useRef<{ nodeId: string; until: number } | null>(null)
   const lastLayoutSignatureRef = useRef('')
   const animationFrameRef = useRef<number | undefined>(undefined)
   const forceFrameRef = useRef(0)
@@ -298,6 +301,11 @@ export default function GraphCanvas({
   const highlightedPathKey = highlightedPath
     ? [...highlightedPath.personIds, ...highlightedPath.relationshipIds].join('|')
     : ''
+
+  const handlePersonLongPress = useCallback((personId: string) => {
+    suppressClickUntilRef.current = { nodeId: personId, until: Date.now() + 700 }
+    onPersonLongPress?.(personId)
+  }, [onPersonLongPress])
 
   useEffect(() => {
     setFlowEdges(edges)
@@ -347,6 +355,17 @@ export default function GraphCanvas({
 
     setFlowNodes((currentNodes) => {
       const interactiveNodes = toInteractiveNodes(nodes, shouldInitializeLayout ? undefined : currentNodes)
+        .map((node) => {
+          if (node.type !== 'personNode' && node.type !== 'centerNode') return node
+
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              onLongPress: handlePersonLongPress,
+            },
+          }
+        })
       const nextNodes = isIslandView || !shouldInitializeLayout
         ? interactiveNodes
         : getWarmSettledNodes(interactiveNodes, edges)
@@ -368,7 +387,7 @@ export default function GraphCanvas({
     }, 90)
 
     return () => window.clearTimeout(timeoutId)
-  }, [edges, isIslandView, layoutSignature, nodes, setFlowNodes, startForceSimulation, stopForceSimulation])
+  }, [edges, handlePersonLongPress, isIslandView, layoutSignature, nodes, setFlowNodes, startForceSimulation, stopForceSimulation])
 
   useEffect(() => () => stopForceSimulation(), [stopForceSimulation])
 
@@ -470,6 +489,11 @@ export default function GraphCanvas({
           zoomOnScroll
           zoomOnPinch
           onNodeClick={(_, node) => {
+            const suppressedClick = suppressClickUntilRef.current
+            if (suppressedClick && suppressedClick.nodeId === node.id && suppressedClick.until > Date.now()) {
+              suppressClickUntilRef.current = null
+              return
+            }
             if (node.type === 'islandFrame') {
               focusGraphNode(node.id)
               return
