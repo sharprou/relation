@@ -1,6 +1,7 @@
 import { db } from '../../db/database'
 import { APP_VERSION, initApp } from '../app/initApp'
 import type { AppSettings, BackupData, InteractionEvent, Person, Relationship, TagItem } from '../../types'
+import { recordBackupNow } from '../settings/settingsService'
 
 const BACKUP_FILE_PREFIX = 'relationship-graph-backup'
 
@@ -22,6 +23,10 @@ function hasNumberField(value: unknown, field: string): boolean {
 
 function hasBooleanField(value: unknown, field: string): boolean {
   return isRecord(value) && typeof value[field] === 'boolean'
+}
+
+function hasOptionalBooleanField(value: unknown, field: string): boolean {
+  return isRecord(value) && (value[field] === undefined || typeof value[field] === 'boolean')
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -91,6 +96,8 @@ function isAppSettings(value: unknown): value is AppSettings {
     hasStringField(value, 'id') &&
     hasStringField(value, 'appVersion') &&
     hasBooleanField(value, 'initialized') &&
+    hasOptionalBooleanField(value, 'hasSeenOnboarding') &&
+    hasOptionalStringField(value, 'lastBackupAt') &&
     hasStringField(value, 'createdAt') &&
     hasStringField(value, 'updatedAt')
   )
@@ -149,6 +156,7 @@ export async function downloadBackupFile(): Promise<void> {
   link.click()
   link.remove()
   window.setTimeout(() => URL.revokeObjectURL(url), 0)
+  await recordBackupNow()
 }
 
 export async function importBackup(data: BackupData): Promise<void> {

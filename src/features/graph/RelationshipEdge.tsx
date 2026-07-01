@@ -10,6 +10,8 @@ interface RelationshipEdgeData {
   showLabel?: boolean
   sourceRadius?: number
   targetRadius?: number
+  isPathHighlighted?: boolean
+  isDimmed?: boolean
 }
 
 function getNodeCenterFromHandle(
@@ -69,15 +71,20 @@ export default function RelationshipEdge({
 
   const { relationship, isPrimary, lineMetric, showLabel = true } = edgeData
   const baseStyle = getRelationshipEdgeStyle(relationship, { metric: lineMetric, isPrimary })
-  const shouldShowLabel = !isPrimary && (showLabel || hovered || selected)
+  const isPathHighlighted = Boolean(edgeData.isPathHighlighted)
+  const isDimmed = Boolean(edgeData.isDimmed)
+  const shouldShowLabel = isPathHighlighted || (!isPrimary && (showLabel || hovered || selected))
   const edgeStyle: CSSProperties = {
     ...style,
     ...baseStyle,
-    opacity: hovered ? Math.min(1, baseStyle.opacity + 0.18) : baseStyle.opacity,
-    strokeWidth: hovered ? baseStyle.strokeWidth + 0.45 : baseStyle.strokeWidth,
-    filter: isPrimary
-      ? 'drop-shadow(0 2px 5px rgba(218,116,139,0.16))'
-      : 'drop-shadow(0 2px 4px rgba(124,83,96,0.10))',
+    stroke: isPathHighlighted ? '#ff88a7' : baseStyle.stroke,
+    opacity: isDimmed ? 0.32 : isPathHighlighted ? 1 : hovered ? Math.min(1, baseStyle.opacity + 0.18) : baseStyle.opacity,
+    strokeWidth: isPathHighlighted ? baseStyle.strokeWidth + 2 : hovered ? baseStyle.strokeWidth + 0.45 : baseStyle.strokeWidth,
+    filter: isPathHighlighted
+      ? 'drop-shadow(0 0 7px rgba(239,113,147,0.30))'
+      : isPrimary
+        ? 'drop-shadow(0 2px 5px rgba(218,116,139,0.16))'
+        : 'drop-shadow(0 2px 4px rgba(124,83,96,0.10))',
     transition: 'stroke 180ms ease, opacity 180ms ease, stroke-width 180ms ease',
   }
 
@@ -92,7 +99,7 @@ export default function RelationshipEdge({
         path={path}
         markerEnd={markerEnd}
         style={edgeStyle}
-        interactionWidth={isPrimary ? 20 : 16}
+        interactionWidth={isPathHighlighted ? 26 : isPrimary ? 20 : 16}
       />
       {shouldShowLabel ? (
         <EdgeLabelRenderer>

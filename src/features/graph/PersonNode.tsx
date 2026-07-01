@@ -28,6 +28,8 @@ export default function PersonNode({ data }: NodeProps) {
   const relationship = data.relationship as Relationship | undefined
   const placement = data.placement as { x: number; y: number } | undefined
   const labelPlacement = data.labelPlacement as PersonNodeLabelPlacement | undefined
+  const isPathHighlighted = Boolean(data.isPathHighlighted)
+  const isDimmed = Boolean(data.isDimmed)
   const color = getCircleColor(person.circle)
   const fallbackPlacement = (placement?.x ?? -1) > 0 ? 'left' : 'right'
   const resolvedPlacement = labelPlacement ?? fallbackPlacement
@@ -37,6 +39,7 @@ export default function PersonNode({ data }: NodeProps) {
     <button
       type="button"
       className="group relative h-[74px] w-[74px] cursor-grab rounded-full p-0 text-left transition hover:-translate-y-0.5 active:cursor-grabbing"
+      style={{ opacity: isDimmed ? 0.38 : 1 }}
     >
       {handlePositions.map(([id, position]) => (
         <Handle key={`target-${id}`} id={id} type="target" position={position} className={handleClass} />
@@ -46,7 +49,12 @@ export default function PersonNode({ data }: NodeProps) {
       ))}
       <div
         className="grid h-[74px] w-[74px] place-items-center rounded-full border-[2.5px] bg-white p-1.5 shadow-[0_14px_32px_rgba(239,113,147,0.16)]"
-        style={{ borderColor: color, boxShadow: `0 14px 30px ${color}38` }}
+        style={{
+          borderColor: isPathHighlighted ? '#ef7193' : color,
+          boxShadow: isPathHighlighted
+            ? `0 0 0 7px rgba(255,220,228,0.78), 0 16px 34px rgba(239,113,147,0.28)`
+            : `0 14px 30px ${color}38`,
+        }}
       >
         <PersonAvatar name={person.name} avatar={person.avatar} seed={person.circle} className="h-full w-full text-xl shadow-none ring-0" />
       </div>

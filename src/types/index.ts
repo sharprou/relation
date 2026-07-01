@@ -64,6 +64,8 @@ export interface AppSettings {
   id: string
   appVersion: string
   initialized: boolean
+  hasSeenOnboarding?: boolean
+  lastBackupAt?: string
   createdAt: string
   updatedAt: string
 }

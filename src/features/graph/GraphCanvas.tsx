@@ -6,11 +6,15 @@ import clsx from 'clsx'
 import PersonNode from './PersonNode'
 import CenterNode from './CenterNode'
 import RelationshipEdge from './RelationshipEdge'
+import IslandFrameNode from './IslandFrameNode'
 import { getRelationshipLegendItems, type GraphLineMetric } from './graphStyle'
+import type { HighlightedPath } from './pathSearch'
+import type { Relationship } from '../../types'
 
 const nodeTypes = {
   centerNode: CenterNode,
   personNode: PersonNode,
+  islandFrame: IslandFrameNode,
 }
 
 const edgeTypes = {
@@ -36,6 +40,16 @@ function toInteractiveNodes(nodes: Node[], previousNodes?: Node[]): Node[] {
   const previousNodeById = new Map(previousNodes?.map((node) => [node.id, node]) ?? [])
 
   return nodes.map((node) => {
+    if (node.type === 'islandFrame') {
+      return {
+        ...node,
+        position: node.position,
+        draggable: false,
+        selectable: true,
+        zIndex: 0,
+      }
+    }
+
     const previousNode = previousNodeById.get(node.id)
     const previousData = previousNode?.data as ForceNodeData | undefined
     const layoutAnchor = previousData?.layoutAnchor ?? { ...node.position }
@@ -99,12 +113,13 @@ function getForceSettledNodes(
   }))
   const nodeById = new Map(nextNodes.map((node) => [node.id, node]))
   const forces = new Map(nextNodes.map((node) => [node.id, { x: 0, y: 0 }]))
-  const nodeCount = nextNodes.length
+  const physicalNodes = nextNodes.filter((node) => node.type !== 'islandFrame')
+  const nodeCount = physicalNodes.length
 
-  for (let indexA = 0; indexA < nextNodes.length; indexA += 1) {
-    for (let indexB = indexA + 1; indexB < nextNodes.length; indexB += 1) {
-      const nodeA = nextNodes[indexA]
-      const nodeB = nextNodes[indexB]
+  for (let indexA = 0; indexA < physicalNodes.length; indexA += 1) {
+    for (let indexB = indexA + 1; indexB < physicalNodes.length; indexB += 1) {
+      const nodeA = physicalNodes[indexA]
+      const nodeB = physicalNodes[indexB]
       let dx = nodeB.position.x - nodeA.position.x
       let dy = nodeB.position.y - nodeA.position.y
       let distance = Math.hypot(dx, dy)
@@ -167,6 +182,8 @@ function getForceSettledNodes(
   let motion = 0
 
   nextNodes.forEach((node) => {
+    if (node.type === 'islandFrame') return
+
     const force = forces.get(node.id)
     if (!force) return
 
@@ -225,16 +242,30 @@ interface GraphCanvasProps {
   edges: Edge[]
   lineMetric: GraphLineMetric
   onPersonClick: (personId: string) => void
+  isIslandView?: boolean
   layoutResetKey?: string
+  highlightedPath?: HighlightedPath | null
   className?: string
   emptyHint?: {
     text: string
     actionLabel?: string
     onAction?: () => void
   }
+  onRelationshipClick?: (relationship: Relationship) => void
 }
 
-export default function GraphCanvas({ nodes, edges, lineMetric, onPersonClick, layoutResetKey = '', className, emptyHint }: GraphCanvasProps) {
+export default function GraphCanvas({
+  nodes,
+  edges,
+  lineMetric,
+  onPersonClick,
+  isIslandView = false,
+  layoutResetKey = '',
+  highlightedPath,
+  className,
+  emptyHint,
+  onRelationshipClick,
+}: GraphCanvasProps) {
   const reactFlow = useReactFlow()
   const lastLayoutSignatureRef = useRef('')
   const animationFrameRef = useRef<number | undefined>(undefined)
@@ -248,11 +279,12 @@ export default function GraphCanvas({ nodes, edges, lineMetric, onPersonClick, l
   const personNodeCount = nodes.filter((node) => node.type === 'personNode').length
   const legendItems = getRelationshipLegendItems(lineMetric)
   const fitViewConfig = useMemo(() => {
+    if (isIslandView) return { padding: 0.24, maxZoom: 0.78, yOffset: 0 }
     if (personNodeCount <= 4) return { padding: 0.32, maxZoom: 1, yOffset: -38 }
     if (personNodeCount <= 8) return { padding: 0.48, maxZoom: 0.86, yOffset: -20 }
     if (personNodeCount <= 12) return { padding: 0.5, maxZoom: 0.8, yOffset: -8 }
     return { padding: 0.4, maxZoom: 0.82, yOffset: 0 }
-  }, [personNodeCount])
+  }, [isIslandView, personNodeCount])
   const layoutSignature = useMemo(
     () => [
       layoutResetKey,
@@ -261,6 +293,9 @@ export default function GraphCanvas({ nodes, edges, lineMetric, onPersonClick, l
     ].join('::'),
     [edges, layoutResetKey, nodes],
   )
+  const highlightedPathKey = highlightedPath
+    ? [...highlightedPath.personIds, ...highlightedPath.relationshipIds].join('|')
+    : ''
 
   useEffect(() => {
     setFlowEdges(edges)
@@ -310,7 +345,7 @@ export default function GraphCanvas({ nodes, edges, lineMetric, onPersonClick, l
 
     setFlowNodes((currentNodes) => {
       const interactiveNodes = toInteractiveNodes(nodes, shouldInitializeLayout ? undefined : currentNodes)
-      const nextNodes = !shouldInitializeLayout
+      const nextNodes = isIslandView || !shouldInitializeLayout
         ? interactiveNodes
         : getWarmSettledNodes(interactiveNodes, edges)
 
@@ -324,12 +359,14 @@ export default function GraphCanvas({ nodes, edges, lineMetric, onPersonClick, l
     stopForceSimulation()
     velocityRef.current = new Map()
 
+    if (isIslandView) return undefined
+
     const timeoutId = window.setTimeout(() => {
       startForceSimulation()
     }, 90)
 
     return () => window.clearTimeout(timeoutId)
-  }, [edges, layoutSignature, nodes, setFlowNodes, startForceSimulation, stopForceSimulation])
+  }, [edges, isIslandView, layoutSignature, nodes, setFlowNodes, startForceSimulation, stopForceSimulation])
 
   useEffect(() => () => stopForceSimulation(), [stopForceSimulation])
 
@@ -344,6 +381,15 @@ export default function GraphCanvas({ nodes, edges, lineMetric, onPersonClick, l
     }
   }, [fitViewConfig, hasPersonNodes, reactFlow])
 
+  const focusGraphNode = useCallback((nodeId: string) => {
+    reactFlow.fitView({
+      nodes: [{ id: nodeId }],
+      padding: 0.2,
+      duration: 320,
+      maxZoom: 1,
+    })
+  }, [reactFlow])
+
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       fitGraphView(320)
@@ -351,6 +397,27 @@ export default function GraphCanvas({ nodes, edges, lineMetric, onPersonClick, l
 
     return () => window.clearTimeout(timeoutId)
   }, [edges.length, fitGraphView, layoutSignature])
+
+  useEffect(() => {
+    if (!highlightedPath || highlightedPath.personIds.length === 0) return undefined
+
+    const timeoutId = window.setTimeout(() => {
+      const visiblePathNodes = highlightedPath.personIds
+        .filter((personId) => flowNodesRef.current.some((node) => node.id === personId))
+        .map((personId) => ({ id: personId }))
+
+      if (visiblePathNodes.length === 0) return
+
+      reactFlow.fitView({
+        nodes: visiblePathNodes,
+        padding: 0.42,
+        duration: 420,
+        maxZoom: 1,
+      })
+    }, 180)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [highlightedPath, highlightedPathKey, reactFlow])
 
   return (
     <div className={clsx('relative h-full min-h-0 overflow-hidden rounded-[1.65rem] bg-[radial-gradient(circle_at_50%_43%,rgba(255,215,224,0.70),transparent_7.5rem),radial-gradient(circle_at_18%_18%,rgba(255,229,233,0.56),transparent_7rem),radial-gradient(circle_at_86%_28%,rgba(255,226,211,0.42),transparent_8rem),linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,249,249,0.76))] shadow-[0_18px_42px_rgba(218,116,139,0.11)] ring-1 ring-rose/10', className)}>
@@ -393,7 +460,7 @@ export default function GraphCanvas({ nodes, edges, lineMetric, onPersonClick, l
           fitViewOptions={{ padding: fitViewConfig.padding, maxZoom: fitViewConfig.maxZoom }}
           minZoom={0.24}
           maxZoom={1.35}
-          nodesDraggable
+          nodesDraggable={!isIslandView}
           nodesConnectable={false}
           elementsSelectable
           panOnDrag
@@ -401,7 +468,15 @@ export default function GraphCanvas({ nodes, edges, lineMetric, onPersonClick, l
           zoomOnScroll
           zoomOnPinch
           onNodeClick={(_, node) => {
+            if (node.type === 'islandFrame') {
+              focusGraphNode(node.id)
+              return
+            }
             if (node.type === 'personNode' || node.type === 'centerNode') onPersonClick(node.id)
+          }}
+          onEdgeClick={(_, edge) => {
+            const relationship = (edge.data as { relationship?: Relationship } | undefined)?.relationship
+            if (relationship) onRelationshipClick?.(relationship)
           }}
         >
           <Background color="#f8dce4" gap={24} size={0.75} />

@@ -13,6 +13,7 @@ type PersonInput = Omit<Person, 'id' | 'createdAt' | 'updatedAt' | 'isSelf'>
 
 export interface AddPersonOptions {
   connectToPersonId?: string
+  createInitialRelationship?: boolean
 }
 
 export function getDefaultPersonInput(): PersonInput {
@@ -87,7 +88,9 @@ export async function addPerson(input: PersonInput, options: AddPersonOptions = 
   const person = createPersonFromInput(input, false)
   await db.transaction('rw', db.persons, db.relationships, async () => {
     await db.persons.add(person)
-    await createRelationshipForPerson(person, options.connectToPersonId)
+    if (options.createInitialRelationship !== false) {
+      await createRelationshipForPerson(person, options.connectToPersonId)
+    }
   })
 
   return person

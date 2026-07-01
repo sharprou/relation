@@ -7,10 +7,11 @@ import PersonAvatar from '../../components/common/PersonAvatar'
 interface GraphPerspectiveSelectorProps {
   people: Person[]
   centerPersonId?: string
+  islandLabels?: Record<string, string>
   onChange: (personId: string) => void
 }
 
-export default function GraphPerspectiveSelector({ people, centerPersonId, onChange }: GraphPerspectiveSelectorProps) {
+export default function GraphPerspectiveSelector({ people, centerPersonId, islandLabels = {}, onChange }: GraphPerspectiveSelectorProps) {
   const [open, setOpen] = useState(false)
   const centerPerson = people.find((person) => person.id === centerPersonId) ?? people.find((person) => person.isSelf)
   const orderedPeople = [
@@ -68,6 +69,9 @@ export default function GraphPerspectiveSelector({ people, centerPersonId, onCha
                         <p className="truncate text-sm font-black text-ink">{person.isSelf ? '我' : person.name}</p>
                         <p className="mt-0.5 truncate text-xs font-semibold text-ink/50">
                           {person.relationType} · {displayCircle(person.circle)}
+                        </p>
+                        <p className="mt-1 inline-flex max-w-full rounded-full bg-white/72 px-2 py-0.5 text-[10px] font-bold text-rose/70 ring-1 ring-rose/10">
+                          <span className="truncate">{islandLabels[person.id] ?? (person.isSelf ? '我的关系圈' : '独立人物')}</span>
                         </p>
                       </div>
                       {selected ? (

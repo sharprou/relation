@@ -78,10 +78,6 @@ async function validatePersonPair(input: RelationshipFormInput): Promise<{
     throw new Error('关系中的人物不存在，请刷新后重试。')
   }
 
-  if (sourcePerson.isSelf || targetPerson.isSelf) {
-    throw new Error('人物之间关系请选择普通人物，“我”节点会自动维护关系。')
-  }
-
   return { cleaned, sourcePerson, targetPerson }
 }
 
@@ -156,11 +152,6 @@ export async function updateRelationship(relationshipId: string, input: Relation
   const existing = await db.relationships.get(relationshipId)
   if (!existing) throw new Error('关系不存在。')
 
-  const selfPerson = await getSelfPerson()
-  if (selfPerson && (existing.sourcePersonId === selfPerson.id || existing.targetPersonId === selfPerson.id)) {
-    throw new Error('系统自动关系请通过人物资料维护。')
-  }
-
   const { cleaned } = await validatePersonPair(input)
 
   if (await relationshipExistsBetween(cleaned.sourcePersonId, cleaned.targetPersonId, relationshipId)) {
@@ -180,11 +171,6 @@ export async function updateRelationship(relationshipId: string, input: Relation
 export async function deleteRelationship(relationshipId: string): Promise<void> {
   const existing = await db.relationships.get(relationshipId)
   if (!existing) return
-
-  const selfPerson = await getSelfPerson()
-  if (selfPerson && (existing.sourcePersonId === selfPerson.id || existing.targetPersonId === selfPerson.id)) {
-    throw new Error('系统自动关系请通过删除人物资料清理。')
-  }
 
   await db.relationships.delete(relationshipId)
 }

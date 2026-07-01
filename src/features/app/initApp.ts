@@ -4,7 +4,7 @@ import { nowISO } from '../../utils/date'
 import { generateId } from '../../utils/id'
 
 export const APP_VERSION = '0.1.0'
-const DEFAULT_SETTINGS_ID = 'default'
+export const DEFAULT_SETTINGS_ID = 'default'
 
 function createDefaultSelfPerson(timestamp: string): Person {
   return {

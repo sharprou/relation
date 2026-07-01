@@ -11,6 +11,7 @@ import { addPerson, deletePerson, getPersonById, listPeople, updatePerson } from
 import {
   addPersonRelationship,
   deleteRelationship,
+  ensureRelationshipForPerson,
   getRelationshipByPersonId,
   listRelationshipsByPersonId,
   updateRelationship,
@@ -163,7 +164,10 @@ export default function PeoplePage() {
 
   const submitCreate = async (value: PersonFormValue, connection?: PersonConnectionValue) => {
     try {
-      await addPerson(value, { connectToPersonId: connection?.connectToPersonId })
+      await addPerson(value, {
+        connectToPersonId: connection?.connectToPersonId,
+        createInitialRelationship: connection?.createInitialRelationship ?? true,
+      })
       await refresh()
       setMode('list')
       setCreateConnectToPersonId(undefined)
@@ -230,6 +234,18 @@ export default function PeoplePage() {
     if (!selectedPerson || selectedPerson.isSelf) return
     setEditingRelationship(undefined)
     setRelationshipFormMode('create')
+  }
+
+  const addSelfRelationship = async () => {
+    if (!selectedPerson || selectedPerson.isSelf) return
+
+    try {
+      await ensureRelationshipForPerson(selectedPerson)
+      await refresh()
+      await loadPersonDetail(selectedPerson.id)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '添加与我的关系失败')
+    }
   }
 
   const openEditRelationship = (relationship: Relationship) => {
@@ -309,6 +325,7 @@ export default function PeoplePage() {
         {mode === 'edit' && selectedPerson ? (
           <PersonForm
             person={selectedPerson}
+            connectionPeople={people}
             isSelf={selectedPerson.isSelf}
             submitLabel="保存修改"
             onCancel={cancelCreateOrEdit}
@@ -380,6 +397,7 @@ export default function PeoplePage() {
             onEdit={openEdit}
             onDelete={askDelete}
             onAddKnownPerson={() => openCreate(selectedPerson.id)}
+            onAddSelfRelationship={addSelfRelationship}
             onAddRelationship={openCreateRelationship}
             onEditRelationship={openEditRelationship}
             onDeleteRelationship={askDeleteRelationship}
@@ -399,8 +417,8 @@ export default function PeoplePage() {
 
         {mode === 'list' && !loading && regularPeople.length === 0 ? (
           <div className="rounded-[1.5rem] bg-white/88 p-6 text-center shadow-soft ring-1 ring-violet/10">
-            <p className="text-base font-medium text-ink">你的人物关系图谱还是空的。</p>
-            <p className="mt-2 text-sm leading-6 text-ink/60">先添加第一个人物吧。</p>
+            <p className="text-base font-bold text-ink">关系会从第一个人物开始慢慢长出来。</p>
+            <p className="mt-2 text-sm leading-6 text-ink/60">先添加一个你想记录的人，之后可以再补关系和事件。</p>
             <div className="mt-4">
               <button type="button" className="rounded-2xl bg-violet px-4 py-3 text-sm font-medium text-white" onClick={() => openCreate()}>
                 添加人物
@@ -411,7 +429,7 @@ export default function PeoplePage() {
 
         {mode === 'list' && !loading && regularPeople.length > 0 && visiblePeople.length === 0 ? (
           <div className="rounded-[1.5rem] bg-white/88 p-6 text-center shadow-soft ring-1 ring-violet/10">
-            <p className="text-base font-medium text-ink">没有找到相关人物。</p>
+            <p className="text-base font-bold text-ink">这次没有碰到匹配的人。</p>
             <p className="mt-2 text-sm leading-6 text-ink/60">试试换个关键词，或清空筛选条件。</p>
           </div>
         ) : null}

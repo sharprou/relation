@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Person, TagItem } from '../../types'
 import { getDefaultPersonInput, sanitizePersonInput } from '../../features/people/peopleService'
+import DuplicatePersonNotice from '../../features/people/DuplicatePersonNotice'
+import { findDuplicatePersons } from '../../features/people/personDuplicateUtils'
 import { listTags } from '../../features/tags/tagService'
 import { DEFAULT_EMOTIONAL_TONES, DEFAULT_RELATION_STATUSES, DEFAULT_RELATION_TYPES } from '../../utils/constants'
 import { cleanVisibleTags } from '../../utils/display'
@@ -11,6 +13,7 @@ export type PersonFormValue = ReturnType<typeof getDefaultPersonInput>
 
 export interface PersonConnectionValue {
   connectToPersonId?: string
+  createInitialRelationship?: boolean
 }
 
 interface PersonFormProps {
@@ -82,15 +85,21 @@ export default function PersonForm({
   const [intimacyInput, setIntimacyInput] = useState(() => toNumberInput(initial.intimacy))
   const [trustInput, setTrustInput] = useState(() => toNumberInput(initial.trust))
   const [importanceInput, setImportanceInput] = useState(() => toNumberInput(initial.importance))
+  const [duplicateConfirmed, setDuplicateConfirmed] = useState(false)
   const connectionOptions = [
     ...connectionPeople.filter((item) => item.isSelf),
     ...connectionPeople.filter((item) => !item.isSelf),
   ].filter((item) => !item.isSelf || !person)
   const fallbackConnectionPersonId = defaultConnectToPersonId ?? connectionOptions.find((item) => item.isSelf)?.id ?? connectionOptions[0]?.id ?? ''
   const [connectToPersonId, setConnectToPersonId] = useState(fallbackConnectionPersonId)
+  const [createInitialRelationship, setCreateInitialRelationship] = useState(true)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const visibleAvailableTags = availableTags.filter((tag) => cleanVisibleTags([tag.name]).length > 0)
   const showConnectionPicker = !person && connectionOptions.length > 0
+  const duplicateMatches = useMemo(
+    () => findDuplicatePersons(form, connectionPeople, person?.id),
+    [connectionPeople, form, person?.id],
+  )
 
   useEffect(() => {
     setForm(initial)
@@ -98,6 +107,10 @@ export default function PersonForm({
     setTrustInput(toNumberInput(initial.trust))
     setImportanceInput(toNumberInput(initial.importance))
   }, [initial])
+
+  useEffect(() => {
+    setDuplicateConfirmed(false)
+  }, [form.name, form.nickname, person?.id])
 
   useEffect(() => {
     setConnectToPersonId(fallbackConnectionPersonId)
@@ -147,8 +160,19 @@ export default function PersonForm({
       return
     }
 
+    const submitDuplicateMatches = findDuplicatePersons(cleaned, connectionPeople, person?.id)
+    const hasExactDuplicate = submitDuplicateMatches.some((match) => match.risk === 'exact')
+
+    if (hasExactDuplicate && !duplicateConfirmed) {
+      setError('发现完全同名人物，请先在提示卡中确认继续保存。')
+      return
+    }
+
     setError('')
-    await onSubmit(cleaned, showConnectionPicker ? { connectToPersonId } : undefined)
+    await onSubmit(cleaned, !person ? {
+      connectToPersonId: createInitialRelationship ? connectToPersonId : undefined,
+      createInitialRelationship,
+    } : undefined)
   }
 
   const handleAvatarChange = async (file?: File) => {
@@ -198,6 +222,17 @@ export default function PersonForm({
           <input className="rounded-2xl border border-violet/10 bg-paper/85 px-4 py-3 outline-none focus:border-violet/35" value={form.nickname} onChange={(e) => update('nickname', e.target.value)} />
         </label>
 
+        {form.name.trim() ? (
+          <DuplicatePersonNotice
+            matches={duplicateMatches}
+            confirmed={duplicateConfirmed}
+            onContinue={() => {
+              setDuplicateConfirmed(true)
+              setError('')
+            }}
+          />
+        ) : null}
+
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="grid gap-2">
             <span className="text-sm font-medium text-ink">关系类型</span>
@@ -211,13 +246,33 @@ export default function PersonForm({
           </label>
         </div>
 
-        {showConnectionPicker ? (
+        {!person ? (
           <div className="rounded-[1.25rem] bg-[#fff4f7] p-3 ring-1 ring-rose/10">
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                className="mt-1 h-5 w-5 shrink-0 accent-rose"
+                checked={createInitialRelationship}
+                onChange={(event) => setCreateInitialRelationship(event.target.checked)}
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-black text-ink">与我建立关系</span>
+                <span className="mt-1 block text-xs leading-5 text-ink/55">
+                  关闭后，该人物会作为独立人物记录，可之后再和其他人物建立关系。
+                </span>
+              </span>
+            </label>
+          </div>
+        ) : null}
+
+        {showConnectionPicker ? (
+          <div className={`rounded-[1.25rem] bg-[#fff4f7] p-3 ring-1 ring-rose/10 ${createInitialRelationship ? '' : 'opacity-55'}`}>
             <label className="grid gap-2">
               <span className="text-sm font-medium text-ink">这个人是谁认识的</span>
               <select
                 className="rounded-2xl border border-rose/10 bg-white/86 px-4 py-3 text-sm font-semibold text-ink/72 outline-none focus:border-rose/30"
                 value={connectToPersonId}
+                disabled={!createInitialRelationship}
                 onChange={(event) => setConnectToPersonId(event.target.value)}
               >
                 {connectionOptions.map((item) => (
@@ -228,7 +283,7 @@ export default function PersonForm({
               </select>
             </label>
             <p className="mt-2 text-xs leading-5 text-ink/55">
-              选择别人时，会生成“那个人 - 新人物”的关系，不会自动连一条到我。
+              开启上方选项后，会生成“所选人物 - 新人物”的关系；默认选择我，选择别人时不会额外连一条到我。
             </p>
           </div>
         ) : null}
@@ -302,7 +357,7 @@ export default function PersonForm({
               })}
             </div>
           ) : (
-            <p className="rounded-2xl bg-violetMist/70 px-4 py-3 text-sm text-ink/60">暂无标签，请先到设置页新增。</p>
+            <p className="rounded-2xl bg-violetMist/70 px-4 py-3 text-sm text-ink/60">还没有可选标签，可以先到设置页添几个小线索。</p>
           )}
         </div>
 

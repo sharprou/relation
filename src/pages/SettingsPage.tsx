@@ -3,8 +3,9 @@ import { Download, FileUp, ShieldAlert, Smartphone, Trash2 } from 'lucide-react'
 import ConfirmDialog from '../components/common/ConfirmDialog'
 import PageShell from '../components/common/PageShell'
 import { clearAllLocalData, downloadBackupFile, importBackup, validateBackupData } from '../features/backup/backupService'
+import { getAppSettings, markOnboardingSeen } from '../features/settings/settingsService'
 import { addTag, deleteTag, listTags, updateTag, type TagFormInput } from '../features/tags/tagService'
-import type { BackupData, TagItem } from '../types'
+import type { AppSettings, BackupData, TagItem } from '../types'
 
 const TAG_COLOR_PRESETS = ['#f1e9ff', '#dff6eb', '#e5efff', '#ffe6ee', '#fff0d8', '#edf0fb']
 
@@ -17,9 +18,22 @@ function getDefaultTagForm(): TagFormInput {
   }
 }
 
+function getBackupAge(lastBackupAt?: string): { label: string; days: number } {
+  if (!lastBackupAt) return { label: '上次备份：从未备份', days: Number.POSITIVE_INFINITY }
+
+  const backupDate = new Date(lastBackupAt)
+  if (Number.isNaN(backupDate.getTime())) return { label: `上次备份：${lastBackupAt.slice(0, 10)}`, days: 0 }
+
+  const days = Math.max(0, Math.floor((Date.now() - backupDate.getTime()) / 86400000))
+  if (days === 0) return { label: '上次备份：今天', days }
+
+  return { label: `上次备份：${days} 天前`, days }
+}
+
 export default function SettingsPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [tags, setTags] = useState<TagItem[]>([])
+  const [settings, setSettings] = useState<AppSettings | null>(null)
   const [tagForm, setTagForm] = useState<TagFormInput>(getDefaultTagForm())
   const [editingTagId, setEditingTagId] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<TagItem | null>(null)
@@ -33,8 +47,12 @@ export default function SettingsPage() {
     setTags(await listTags())
   }
 
+  const refreshSettings = async () => {
+    setSettings(await getAppSettings())
+  }
+
   useEffect(() => {
-    refreshTags().catch((err) => {
+    Promise.all([refreshTags(), refreshSettings()]).catch((err) => {
       setError(err instanceof Error ? err.message : '标签读取失败')
     })
   }, [])
@@ -84,6 +102,7 @@ export default function SettingsPage() {
       setIsBackupBusy(true)
       setBackupMessage('')
       await downloadBackupFile()
+      await refreshSettings()
       setBackupMessage('JSON 备份已生成，请在浏览器下载记录中查看。')
     } catch (err) {
       setBackupMessage(err instanceof Error ? err.message : '导出备份失败')
@@ -136,12 +155,14 @@ export default function SettingsPage() {
       if (backupConfirmAction === 'import' && pendingImportData) {
         await importBackup(pendingImportData)
         await refreshTags()
+        await refreshSettings()
         setBackupMessage('JSON 备份已导入，本地数据已恢复。')
       }
 
       if (backupConfirmAction === 'clear') {
         await clearAllLocalData()
         await refreshTags()
+        await refreshSettings()
         resetForm()
         setBackupMessage('本地数据已清空，并已重新创建“我”节点。')
       }
@@ -155,11 +176,21 @@ export default function SettingsPage() {
   }
 
   const backupConfirmTitle = backupConfirmAction === 'clear' ? '清空本地数据' : '导入 JSON 备份'
+  const importPreview = pendingImportData
+    ? `将导入：${pendingImportData.persons.length} 个人物、${pendingImportData.relationships.length} 条关系、${pendingImportData.events.length} 个事件、${pendingImportData.tags.length} 个标签。`
+    : ''
   const backupConfirmMessage =
     backupConfirmAction === 'clear'
       ? '此操作会删除所有本地数据，建议先导出备份。是否继续？'
-      : '导入会覆盖当前本地数据，建议先导出备份。是否继续？'
+      : `${importPreview} 导入会覆盖当前本地数据，建议先导出备份。是否继续？`
   const backupConfirmLabel = backupConfirmAction === 'clear' ? '清空数据' : '覆盖导入'
+  const backupAge = getBackupAge(settings?.lastBackupAt)
+  const backupReminder = !settings?.lastBackupAt || backupAge.days > 7
+  const reopenOnboarding = async () => {
+    await markOnboardingSeen(false)
+    await refreshSettings()
+    setBackupMessage('新手引导已准备好，回到图谱页就能重新查看。')
+  }
 
   return (
     <PageShell
@@ -181,6 +212,12 @@ export default function SettingsPage() {
           </div>
 
           <div className="mt-4 grid gap-3">
+            <div className={`rounded-2xl px-4 py-3 text-sm leading-6 ring-1 ${backupReminder ? 'bg-[#fff0f4] text-rose ring-rose/12' : 'bg-paper text-ink/66 ring-violet/10'}`}>
+              <p className="font-black text-ink">数据保存在本机浏览器中</p>
+              <p className="mt-1">建议定期导出 JSON 备份，避免更换设备或清理浏览器后数据丢失。</p>
+              <p className="mt-2 font-bold">{backupAge.label}</p>
+              {backupReminder ? <p className="mt-1 text-xs font-bold">已经一周没有备份啦，建议导出一次 JSON。</p> : null}
+            </div>
             <button
               type="button"
               className="inline-flex items-center gap-3 rounded-2xl bg-lake/10 px-4 py-3 text-left text-sm font-medium text-ink ring-1 ring-lake/20 disabled:opacity-60"
@@ -213,6 +250,15 @@ export default function SettingsPage() {
           <input ref={fileInputRef} type="file" accept="application/json,.json" className="hidden" onChange={handleImportFileChange} />
 
           {backupMessage ? <p className="mt-3 rounded-2xl bg-paper px-4 py-3 text-sm leading-6 text-ink/70">{backupMessage}</p> : null}
+        </section>
+
+        <section className="rounded-[1.5rem] bg-white/88 p-4 shadow-soft ring-1 ring-violet/10">
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-violet">Guide</p>
+          <h2 className="mt-1 text-lg font-semibold text-ink">新手引导</h2>
+          <p className="mt-1 text-sm leading-6 text-ink/60">想重新看一遍关系图谱的基本玩法，可以从这里打开。</p>
+          <button type="button" className="mt-4 rounded-2xl bg-violetMist px-4 py-3 text-sm font-bold text-violet ring-1 ring-violet/10" onClick={reopenOnboarding}>
+            重新查看新手引导
+          </button>
         </section>
 
         <section className="rounded-[1.5rem] bg-white/88 p-4 shadow-soft ring-1 ring-violet/10">
@@ -294,7 +340,7 @@ export default function SettingsPage() {
               ))}
             </div>
           ) : (
-            <div className="mt-3 rounded-2xl bg-paper px-4 py-6 text-center text-sm text-ink/60">暂无标签。</div>
+            <div className="mt-3 rounded-2xl bg-paper px-4 py-6 text-center text-sm text-ink/60">还没有标签，可以先从“可靠”“同事”这类小线索开始。</div>
           )}
         </section>
 
