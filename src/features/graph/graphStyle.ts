@@ -30,9 +30,9 @@ export function getEdgeWidth(intimacy: number): number {
 }
 
 export function getSecondaryEdgeWidth(intimacy: number): number {
-  if (intimacy >= 80) return 2.1
-  if (intimacy >= 50) return 1.85
-  return 1.55
+  if (intimacy >= 80) return 1.75
+  if (intimacy >= 50) return 1.45
+  return 1.2
 }
 
 function getIntimacyStroke(value: number): string {
@@ -89,7 +89,7 @@ export function getRelationshipEdgeStyle(relationship: Relationship, options: Re
     strokeWidth: options.isPrimary ? getEdgeWidth(relationship.intimacy) : getSecondaryEdgeWidth(relationship.intimacy),
     strokeDasharray: getEdgeDashArray(relationship.status),
     strokeLinecap: 'round' as const,
-    opacity: options.isPrimary ? 0.9 : 0.7,
+    opacity: options.isPrimary ? 0.9 : 0.48,
   }
 }
 

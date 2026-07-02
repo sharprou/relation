@@ -1,10 +1,10 @@
 import { ReactFlowProvider } from '@xyflow/react'
 import { Search, SlidersHorizontal } from 'lucide-react'
-import { useEffect, useMemo, useState, type WheelEvent } from 'react'
+import { useEffect, useMemo, useState, type PointerEvent, type TouchEvent, type WheelEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import GraphCanvas from '../features/graph/GraphCanvas'
 import GraphHelpDialog from '../features/graph/GraphHelpDialog'
-import { loadGraphData, type GraphData } from '../features/graph/graphService'
+import { loadGraphData, type GraphData, type GraphEdgeMode } from '../features/graph/graphService'
 import GraphMetricToggle from '../features/graph/GraphMetricToggle'
 import GraphPathSearch from '../features/graph/GraphPathSearch'
 import GraphPersonActionSheet from '../features/graph/GraphPersonActionSheet'
@@ -47,6 +47,7 @@ export default function GraphPage() {
   const [filters, setFilters] = useState<PeopleFilters>(EMPTY_PEOPLE_FILTERS)
   const [centerPersonId, setCenterPersonId] = useState('')
   const [lineMetric, setLineMetric] = useState<GraphLineMetric>('intimacy')
+  const [edgeMode, setEdgeMode] = useState<GraphEdgeMode>('smart')
   const [networkDepth, setNetworkDepth] = useState<GraphNetworkDepth>('direct')
   const [graphViewMode, setGraphViewMode] = useState<GraphViewMode>('mine')
   const [viewHistory, setViewHistory] = useState<GraphViewState[]>([])
@@ -75,6 +76,7 @@ export default function GraphPage() {
             filters,
             centerPersonId: graphViewMode === 'mine' ? undefined : centerPersonId,
             lineMetric,
+            edgeMode,
             networkDepth,
             viewMode: graphViewMode,
             highlightedPath,
@@ -109,7 +111,7 @@ export default function GraphPage() {
     return () => {
       active = false
     }
-  }, [filters, centerPersonId, lineMetric, networkDepth, graphViewMode, highlightedPath, dataRevision])
+  }, [filters, centerPersonId, lineMetric, edgeMode, networkDepth, graphViewMode, highlightedPath, dataRevision])
 
   const regularPeople = useMemo(() => allPeople.filter((person) => !person.isSelf), [allPeople])
   const filterOptions = useMemo(() => ({
@@ -140,6 +142,7 @@ export default function GraphPage() {
   const clearFilters = () => {
     setFilters(EMPTY_PEOPLE_FILTERS)
     setNetworkDepth('direct')
+    setEdgeMode('smart')
     setGraphViewMode('mine')
     setViewHistory([])
   }
@@ -156,11 +159,19 @@ export default function GraphPage() {
     event.preventDefault()
   }
 
+  const stopGraphGesturePropagation = (event: PointerEvent<HTMLDivElement> | TouchEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+  }
+
   const toggleMinIntimacy = () => {
     setFilters((current) => ({
       ...current,
       minIntimacy: current.minIntimacy === MIN_INTIMACY ? '' : MIN_INTIMACY,
     }))
+  }
+
+  const toggleEdgeMode = () => {
+    setEdgeMode((current) => current === 'smart' ? 'all' : 'smart')
   }
 
   const isSameGraphView = (viewA: GraphViewState, viewB: GraphViewState) => (
@@ -332,91 +343,98 @@ export default function GraphPage() {
     : undefined
 
   return (
-    <div className="-mt-1 flex h-[calc(100dvh-8rem)] min-h-0 flex-col gap-3 overflow-hidden">
-      <header className="flex shrink-0 items-center justify-between gap-3">
-        <h1 className="text-[26px] font-black tracking-[-0.03em] text-ink">关系图谱</h1>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="grid h-9 w-9 place-items-center rounded-full bg-white/90 text-ink shadow-[0_12px_24px_rgba(218,116,139,0.10)] ring-1 ring-rose/10"
-            onClick={() => navigate('/people')}
-            aria-label="搜索人物"
-          >
-            <Search className="h-[18px] w-[18px]" aria-hidden="true" />
-          </button>
-          <GraphHelpDialog open={showGraphHelp} onOpen={() => setShowGraphHelp(true)} onClose={() => setShowGraphHelp(false)} />
-          <button
-            type="button"
-            className={`grid h-9 w-9 place-items-center rounded-full shadow-[0_12px_24px_rgba(218,116,139,0.10)] ring-1 transition ${showAdvancedFilters ? 'bg-[#ffe5ec] text-rose ring-rose/20' : 'bg-white/90 text-ink ring-rose/10'}`}
-            onClick={() => setShowAdvancedFilters((current) => !current)}
-            aria-label="筛选图谱"
-          >
-            <SlidersHorizontal className="h-[18px] w-[18px]" aria-hidden="true" />
-          </button>
-        </div>
-      </header>
-
-      <GraphViewToolbar
-        viewMode={graphViewMode}
-        centerPerson={currentCenterPerson}
-        canGoBack={viewHistory.length > 0}
-        onBack={goBackGraphView}
-        onShowMine={showMineView}
-        onShowIslands={showAllIslands}
-      />
-
+    <div className="-mt-1 isolate flex h-[calc(100dvh-8rem)] min-h-0 flex-col gap-3 overflow-hidden">
       <div
-        data-testid="graph-filter-bar"
-        className="-mx-4 min-w-0 max-w-[calc(100%+2rem)] shrink-0 touch-pan-x overflow-x-auto overscroll-x-contain px-4 pb-0.5 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden"
-        onWheel={handleFilterBarWheel}
+        className="relative z-[80] shrink-0 space-y-3 pointer-events-auto"
+        onPointerDown={stopGraphGesturePropagation}
+        onTouchStart={stopGraphGesturePropagation}
       >
-        <div className="flex w-max max-w-none items-center gap-2">
-          {allPeople.length > 0 ? (
-            <GraphPerspectiveSelector
-              people={allPeople}
-              centerPersonId={graphData?.centerPerson?.id ?? centerPersonId}
-              islandLabels={graphData?.personIslandLabels}
-              onChange={handlePerspectiveChange}
-            />
-          ) : null}
-          <GraphPathSearch
-            people={allPeople}
-            relationships={allRelationships}
-            defaultStartPersonId={graphData?.centerPerson?.id || centerPersonId || selfPersonId}
-            onPathFound={handlePathFound}
-            onClearPath={clearHighlightedPath}
-            onOpenPersonView={(personId) => enterPersonView(personId, { pushHistory: true })}
-            onOpenPersonDetail={openPersonDetail}
-          />
-          <GraphMetricToggle value={lineMetric} onChange={setLineMetric} />
-          <FilterChip active={networkDepth === 'all' && graphViewMode !== 'islands'} label="多级人脉" onClick={toggleAllNetwork} />
-          <FilterChip active={filters.minIntimacy === MIN_INTIMACY} label="亲密度 60+" onClick={toggleMinIntimacy} />
-          {hasFilters ? <FilterChip active={false} label="清空" onClick={clearFilters} /> : null}
-        </div>
-      </div>
+        <header className="relative z-[82] flex shrink-0 items-center justify-between gap-3">
+          <h1 className="text-[26px] font-black tracking-[-0.03em] text-ink">关系图谱</h1>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="grid h-9 w-9 touch-manipulation place-items-center rounded-full bg-white/90 text-ink shadow-[0_12px_24px_rgba(218,116,139,0.10)] ring-1 ring-rose/10"
+              onClick={() => navigate('/people')}
+              aria-label="搜索人物"
+            >
+              <Search className="h-[18px] w-[18px]" aria-hidden="true" />
+            </button>
+            <GraphHelpDialog open={showGraphHelp} onOpen={() => setShowGraphHelp(true)} onClose={() => setShowGraphHelp(false)} />
+            <button
+              type="button"
+              className={`grid h-9 w-9 touch-manipulation place-items-center rounded-full shadow-[0_12px_24px_rgba(218,116,139,0.10)] ring-1 transition ${showAdvancedFilters ? 'bg-[#ffe5ec] text-rose ring-rose/20' : 'bg-white/90 text-ink ring-rose/10'}`}
+              onClick={() => setShowAdvancedFilters((current) => !current)}
+              aria-label="筛选图谱"
+            >
+              <SlidersHorizontal className="h-[18px] w-[18px]" aria-hidden="true" />
+            </button>
+          </div>
+        </header>
 
-      {showAdvancedFilters ? (
-        <div className="shrink-0 rounded-[1.2rem] bg-white/72 p-2.5 shadow-[0_14px_30px_rgba(218,116,139,0.10)] ring-1 ring-rose/10 backdrop-blur">
-          <div className="grid grid-cols-2 gap-2">
-            <select className="min-w-0 rounded-full border border-rose/10 bg-white/86 px-3 py-2 text-xs font-bold text-ink/68 outline-none focus:border-rose/30" value={filters.relationType} onChange={(event) => setFilter('relationType', event.target.value)}>
-              <option value="">全部关系</option>
-              {filterOptions.relationTypes.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-            <select className="min-w-0 rounded-full border border-rose/10 bg-white/86 px-3 py-2 text-xs font-bold text-ink/68 outline-none focus:border-rose/30" value={filters.circle} onChange={(event) => setFilter('circle', event.target.value)}>
-              <option value="">全部圈层</option>
-              {filterOptions.circles.map((item) => <option key={item} value={item}>{displayOptionLabel(item)}</option>)}
-            </select>
-            <select className="min-w-0 rounded-full border border-rose/10 bg-white/86 px-3 py-2 text-xs font-bold text-ink/68 outline-none focus:border-rose/30" value={filters.status} onChange={(event) => setFilter('status', event.target.value)}>
-              <option value="">全部状态</option>
-              {filterOptions.statuses.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-            <select className="min-w-0 rounded-full border border-rose/10 bg-white/86 px-3 py-2 text-xs font-bold text-ink/68 outline-none focus:border-rose/30" value={filters.tag} onChange={(event) => setFilter('tag', event.target.value)}>
-              <option value="">全部标签</option>
-              {filterOptions.tags.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
+        <GraphViewToolbar
+          viewMode={graphViewMode}
+          centerPerson={currentCenterPerson}
+          canGoBack={viewHistory.length > 0}
+          onBack={goBackGraphView}
+          onShowMine={showMineView}
+          onShowIslands={showAllIslands}
+        />
+
+        <div
+          data-testid="graph-filter-bar"
+          className="relative z-[82] -mx-4 min-w-0 max-w-[calc(100%+2rem)] shrink-0 touch-pan-x overflow-x-auto overscroll-x-contain px-4 pb-0.5 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden"
+          onWheel={handleFilterBarWheel}
+        >
+          <div className="flex w-max max-w-none items-center gap-2">
+            {allPeople.length > 0 ? (
+              <GraphPerspectiveSelector
+                people={allPeople}
+                centerPersonId={graphData?.centerPerson?.id ?? centerPersonId}
+                islandLabels={graphData?.personIslandLabels}
+                onChange={handlePerspectiveChange}
+              />
+            ) : null}
+            <GraphPathSearch
+              people={allPeople}
+              relationships={allRelationships}
+              defaultStartPersonId={graphData?.centerPerson?.id || centerPersonId || selfPersonId}
+              onPathFound={handlePathFound}
+              onClearPath={clearHighlightedPath}
+              onOpenPersonView={(personId) => enterPersonView(personId, { pushHistory: true })}
+              onOpenPersonDetail={openPersonDetail}
+            />
+            <GraphMetricToggle value={lineMetric} onChange={setLineMetric} />
+            <FilterChip active={edgeMode === 'smart'} label={edgeMode === 'smart' ? '精简线' : '全部线'} onClick={toggleEdgeMode} />
+            <FilterChip active={networkDepth === 'all' && graphViewMode !== 'islands'} label="多级人脉" onClick={toggleAllNetwork} />
+            <FilterChip active={filters.minIntimacy === MIN_INTIMACY} label="亲密度 60+" onClick={toggleMinIntimacy} />
+            {hasFilters ? <FilterChip active={false} label="清空" onClick={clearFilters} /> : null}
           </div>
         </div>
-      ) : null}
+
+        {showAdvancedFilters ? (
+          <div className="relative z-[82] shrink-0 rounded-[1.2rem] bg-white/72 p-2.5 shadow-[0_14px_30px_rgba(218,116,139,0.10)] ring-1 ring-rose/10 backdrop-blur">
+            <div className="grid grid-cols-2 gap-2">
+              <select className="min-w-0 rounded-full border border-rose/10 bg-white/86 px-3 py-2 text-xs font-bold text-ink/68 outline-none focus:border-rose/30" value={filters.relationType} onChange={(event) => setFilter('relationType', event.target.value)}>
+                <option value="">全部关系</option>
+                {filterOptions.relationTypes.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+              <select className="min-w-0 rounded-full border border-rose/10 bg-white/86 px-3 py-2 text-xs font-bold text-ink/68 outline-none focus:border-rose/30" value={filters.circle} onChange={(event) => setFilter('circle', event.target.value)}>
+                <option value="">全部圈层</option>
+                {filterOptions.circles.map((item) => <option key={item} value={item}>{displayOptionLabel(item)}</option>)}
+              </select>
+              <select className="min-w-0 rounded-full border border-rose/10 bg-white/86 px-3 py-2 text-xs font-bold text-ink/68 outline-none focus:border-rose/30" value={filters.status} onChange={(event) => setFilter('status', event.target.value)}>
+                <option value="">全部状态</option>
+                {filterOptions.statuses.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+              <select className="min-w-0 rounded-full border border-rose/10 bg-white/86 px-3 py-2 text-xs font-bold text-ink/68 outline-none focus:border-rose/30" value={filters.tag} onChange={(event) => setFilter('tag', event.target.value)}>
+                <option value="">全部标签</option>
+                {filterOptions.tags.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       {error ? <div className="shrink-0 rounded-2xl bg-white/90 px-4 py-2.5 text-sm text-rose-700 shadow-soft ring-1 ring-rose/10">{error}</div> : null}
 
@@ -427,7 +445,7 @@ export default function GraphPage() {
       ) : null}
 
       {graphData ? (
-        <div className="min-h-0 flex-1">
+        <div className="relative z-0 min-h-0 flex-1">
           <ReactFlowProvider>
             <GraphCanvas
               className="h-full"
@@ -530,7 +548,7 @@ function FilterChip({ active, label, onClick }: { active: boolean; label: string
   return (
     <button
       type="button"
-      className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-black shadow-[0_10px_22px_rgba(218,116,139,0.08)] ring-1 transition active:scale-[0.98] ${active ? 'bg-[#ffe3ec] text-rose ring-rose/20' : 'bg-white/90 text-ink/68 ring-rose/10'}`}
+      className={`shrink-0 touch-manipulation whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-black shadow-[0_10px_22px_rgba(218,116,139,0.08)] ring-1 transition active:scale-[0.98] ${active ? 'bg-[#ffe3ec] text-rose ring-rose/20' : 'bg-white/90 text-ink/68 ring-rose/10'}`}
       onClick={onClick}
     >
       {label}

@@ -17,12 +17,15 @@ export interface GraphData {
   personIslandLabels: Record<string, string>
 }
 
+export type GraphEdgeMode = 'smart' | 'all'
+
 export interface GraphLoadOptions {
   filters?: PeopleFilters
   centerPersonId?: string
   lineMetric?: GraphLineMetric
   networkDepth?: 'direct' | 'all'
   viewMode?: 'mine' | 'person' | 'islands'
+  edgeMode?: GraphEdgeMode
   highlightedPath?: HighlightedPath | null
 }
 
@@ -450,6 +453,200 @@ function relationshipStrength(relationship: Relationship): number {
   return relationship.intimacy * 0.6 + relationship.trust * 0.4
 }
 
+function getRelationshipMetricValue(relationship: Relationship, lineMetric: GraphLineMetric): number {
+  return lineMetric === 'trust' ? relationship.trust : relationship.intimacy
+}
+
+function getRelationshipPriority(
+  relationship: Relationship,
+  lineMetric: GraphLineMetric,
+  personById: Map<string, Person>,
+  centerPersonId?: string,
+  highlightedPath?: HighlightedPath | null,
+): number {
+  const sourceImportance = personById.get(relationship.sourcePersonId)?.importance ?? 3
+  const targetImportance = personById.get(relationship.targetPersonId)?.importance ?? 3
+  const metricValue = getRelationshipMetricValue(relationship, lineMetric)
+  let score = metricValue * 2.8 + relationshipStrength(relationship) * 1.5 + (sourceImportance + targetImportance) * 8
+
+  if (highlightedPath?.relationshipIds.includes(relationship.id)) score += 10000
+  if (centerPersonId && isRelationshipConnectedToPerson(relationship, centerPersonId)) score += 520
+  if (relationship.status === '重要') score += 120
+  if (relationship.status === '亲近') score += 84
+  if (relationship.status === '冲突' || relationship.status === '断联') score += 72
+  if (relationship.emotionalTone === '正向') score += 24
+  if (relationship.emotionalTone === '复杂') score += 18
+
+  return score
+}
+
+function compareRelationshipsByPriority(
+  relationshipA: Relationship,
+  relationshipB: Relationship,
+  lineMetric: GraphLineMetric,
+  personById: Map<string, Person>,
+  centerPersonId?: string,
+  highlightedPath?: HighlightedPath | null,
+): number {
+  const scoreDelta = getRelationshipPriority(relationshipB, lineMetric, personById, centerPersonId, highlightedPath) -
+    getRelationshipPriority(relationshipA, lineMetric, personById, centerPersonId, highlightedPath)
+  if (Math.abs(scoreDelta) > 0.001) return scoreDelta
+
+  const metricDelta = getRelationshipMetricValue(relationshipB, lineMetric) - getRelationshipMetricValue(relationshipA, lineMetric)
+  if (metricDelta !== 0) return metricDelta
+
+  const createdDelta = relationshipA.createdAt.localeCompare(relationshipB.createdAt)
+  if (createdDelta !== 0) return createdDelta
+
+  return relationshipA.id.localeCompare(relationshipB.id)
+}
+
+function getSmartPrimaryEdgeLimit(nodeCount: number): number {
+  if (nodeCount <= 8) return Number.MAX_SAFE_INTEGER
+  if (nodeCount <= 12) return 10
+  if (nodeCount <= 18) return 11
+  if (nodeCount <= 26) return 12
+  return 14
+}
+
+function getSmartSecondaryEdgeLimit(nodeCount: number): number {
+  if (nodeCount <= 8) return 6
+  if (nodeCount <= 12) return 4
+  if (nodeCount <= 18) return 3
+  return 2
+}
+
+function selectTopRelationships(
+  relationships: Relationship[],
+  limit: number,
+  lineMetric: GraphLineMetric,
+  personById: Map<string, Person>,
+  centerPersonId?: string,
+  highlightedPath?: HighlightedPath | null,
+): Relationship[] {
+  if (relationships.length <= limit) return relationships
+
+  const highlightedIds = new Set(highlightedPath?.relationshipIds ?? [])
+  const selectedIds = new Set<string>()
+  const sortedRelationships = [...relationships].sort((relationshipA, relationshipB) => (
+    compareRelationshipsByPriority(relationshipA, relationshipB, lineMetric, personById, centerPersonId, highlightedPath)
+  ))
+
+  sortedRelationships.forEach((relationship) => {
+    if (highlightedIds.has(relationship.id)) selectedIds.add(relationship.id)
+  })
+
+  sortedRelationships.forEach((relationship) => {
+    if (selectedIds.size >= limit && !highlightedIds.has(relationship.id)) return
+    selectedIds.add(relationship.id)
+  })
+
+  return relationships.filter((relationship) => selectedIds.has(relationship.id))
+}
+
+function getSmartIslandEdgeLimit(component: GraphComponent): number {
+  const peopleCount = component.people.length
+
+  if (peopleCount <= 6) return Math.min(component.relationships.length, 8)
+  if (peopleCount <= 10) return peopleCount + 1
+  if (peopleCount <= 16) return peopleCount + 2
+  return peopleCount + 3
+}
+
+function selectSmartIslandRelationships(
+  components: GraphComponent[],
+  visibleRelationships: Relationship[],
+  lineMetric: GraphLineMetric,
+  personById: Map<string, Person>,
+  highlightedPath?: HighlightedPath | null,
+): Relationship[] {
+  const selectedIds = new Set<string>()
+  const highlightedIds = new Set(highlightedPath?.relationshipIds ?? [])
+
+  components.forEach((component) => {
+    if (component.relationships.length === 0) return
+
+    const limit = getSmartIslandEdgeLimit(component)
+    const parent = new Map(component.people.map((person) => [person.id, person.id]))
+    const find = (personId: string): string => {
+      const parentId = parent.get(personId) ?? personId
+      if (parentId === personId) return personId
+
+      const rootId = find(parentId)
+      parent.set(personId, rootId)
+      return rootId
+    }
+    const union = (personAId: string, personBId: string): boolean => {
+      const rootAId = find(personAId)
+      const rootBId = find(personBId)
+      if (rootAId === rootBId) return false
+
+      parent.set(rootBId, rootAId)
+      return true
+    }
+    const sortedRelationships = [...component.relationships].sort((relationshipA, relationshipB) => (
+      compareRelationshipsByPriority(relationshipA, relationshipB, lineMetric, personById, undefined, highlightedPath)
+    ))
+
+    sortedRelationships.forEach((relationship) => {
+      if (union(relationship.sourcePersonId, relationship.targetPersonId)) selectedIds.add(relationship.id)
+    })
+
+    sortedRelationships.forEach((relationship) => {
+      if (highlightedIds.has(relationship.id)) selectedIds.add(relationship.id)
+    })
+
+    sortedRelationships.forEach((relationship) => {
+      const selectedComponentEdgeCount = component.relationships.filter((item) => selectedIds.has(item.id)).length
+      if (selectedComponentEdgeCount >= limit && !highlightedIds.has(relationship.id)) return
+
+      selectedIds.add(relationship.id)
+    })
+  })
+
+  return visibleRelationships.filter((relationship) => selectedIds.has(relationship.id))
+}
+
+function selectFocusedDisplayRelationships(
+  visibleRelationships: Relationship[],
+  primaryRelationships: Relationship[],
+  secondaryRelationships: Relationship[],
+  people: Person[],
+  centerPersonId: string,
+  lineMetric: GraphLineMetric,
+  personById: Map<string, Person>,
+  edgeMode: GraphEdgeMode,
+  highlightedPath?: HighlightedPath | null,
+): Relationship[] {
+  if (edgeMode === 'all' || visibleRelationships.length <= 16 || people.length <= 8) {
+    return visibleRelationships
+  }
+
+  const primaryEdges = selectTopRelationships(
+    primaryRelationships,
+    getSmartPrimaryEdgeLimit(people.length),
+    lineMetric,
+    personById,
+    centerPersonId,
+    highlightedPath,
+  )
+  const secondaryEdges = selectTopRelationships(
+    secondaryRelationships,
+    getSmartSecondaryEdgeLimit(people.length),
+    lineMetric,
+    personById,
+    centerPersonId,
+    highlightedPath,
+  )
+  const selectedIds = new Set([...primaryEdges, ...secondaryEdges].map((relationship) => relationship.id))
+
+  highlightedPath?.relationshipIds.forEach((relationshipId) => {
+    if (visibleRelationships.some((relationship) => relationship.id === relationshipId)) selectedIds.add(relationshipId)
+  })
+
+  return visibleRelationships.filter((relationship) => selectedIds.has(relationship.id))
+}
+
 function getConnectedComponents(persons: Person[], relationships: Relationship[]): GraphComponent[] {
   const personById = new Map(persons.map((person) => [person.id, person]))
   const adjacency = new Map(persons.map((person) => [person.id, new Set<string>()]))
@@ -726,6 +923,7 @@ function buildAllIslandsGraphData(
   lineMetric: GraphLineMetric,
   personPassesFilters: (person: Person) => boolean,
   selfPerson?: Person,
+  edgeMode: GraphEdgeMode = 'smart',
   highlightedPath?: HighlightedPath | null,
 ): GraphData {
   const visiblePeople = persons.filter(personPassesFilters)
@@ -735,6 +933,10 @@ function buildAllIslandsGraphData(
     visiblePersonIds.has(relationship.targetPersonId)
   ))
   const components = getConnectedComponents(visiblePeople, visibleRelationships)
+  const personById = new Map(visiblePeople.map((person) => [person.id, person]))
+  const displayRelationships = edgeMode === 'smart'
+    ? selectSmartIslandRelationships(components, visibleRelationships, lineMetric, personById, highlightedPath)
+    : visibleRelationships
   const islandLayouts = buildIslandLayouts(components)
   const islandOffsets = layoutAllIslands(islandLayouts)
   const nodePositions = new Map<string, { x: number; y: number }>()
@@ -791,8 +993,6 @@ function buildAllIslandsGraphData(
     })
     .filter((item): item is GraphNodeAnchor => Boolean(item))
 
-  const personById = new Map(visiblePeople.map((person) => [person.id, person]))
-
   orderedNodeIds.forEach((personId) => {
     const person = personById.get(personId)
     const position = nodePositions.get(personId)
@@ -841,10 +1041,10 @@ function buildAllIslandsGraphData(
   })
 
   const visibleNodeCount = visiblePeople.filter((person) => !person.isSelf).length
-  const visibleEdgeCount = visibleRelationships.length
-  const endpointSpreadById = getEndpointSpreadMap(visibleRelationships, nodePositions)
-  const showSecondaryLabels = visibleRelationships.length <= 6 && visibleNodeCount <= 8
-  const edges = visibleRelationships.map((relationship) => createGraphEdge(
+  const visibleEdgeCount = displayRelationships.length
+  const endpointSpreadById = getEndpointSpreadMap(displayRelationships, nodePositions)
+  const showSecondaryLabels = displayRelationships.length <= 6 && visibleNodeCount <= 8
+  const edges = displayRelationships.map((relationship) => createGraphEdge(
     relationship,
     nodePositions,
     nodeAnchors,
@@ -870,7 +1070,7 @@ function buildAllIslandsGraphData(
 }
 
 export async function loadGraphData(options: GraphLoadOptions = {}): Promise<GraphData> {
-  const { filters, centerPersonId, lineMetric = 'intimacy', networkDepth = 'direct', viewMode = 'mine', highlightedPath } = options
+  const { filters, centerPersonId, lineMetric = 'intimacy', networkDepth = 'direct', viewMode = 'mine', edgeMode = 'smart', highlightedPath } = options
   const [persons, relationships] = await Promise.all([
     db.persons.toArray(),
     db.relationships.toArray(),
@@ -887,7 +1087,7 @@ export async function loadGraphData(options: GraphLoadOptions = {}): Promise<Gra
   const reachableNetwork = centerPerson ? getReachableNetwork(centerPerson.id, relationships) : undefined
 
   if (viewMode === 'islands') {
-    return buildAllIslandsGraphData(persons, relationships, lineMetric, personPassesFilters, selfPerson, highlightedPath)
+    return buildAllIslandsGraphData(persons, relationships, lineMetric, personPassesFilters, selfPerson, edgeMode, highlightedPath)
   }
 
   if (centerPerson) {
@@ -989,21 +1189,40 @@ export async function loadGraphData(options: GraphLoadOptions = {}): Promise<Gra
   })
 
   const nodePositions = new Map(nodes.map((node) => [node.id, node.position]))
-  const visibleNodeCount = people.length
-  const visibleEdgeCount = visibleRelationships.length
   const secondaryRelationships = centerPerson
     ? visibleRelationships.filter((relationship) => !isRelationshipConnectedToPerson(relationship, centerPerson.id))
     : []
   const primaryRelationships = centerPerson
     ? visibleRelationships.filter((relationship) => isRelationshipConnectedToPerson(relationship, centerPerson.id))
     : []
+  const displayRelationships = centerPerson
+    ? selectFocusedDisplayRelationships(
+      visibleRelationships,
+      primaryRelationships,
+      secondaryRelationships,
+      people,
+      centerPerson.id,
+      lineMetric,
+      personById,
+      edgeMode,
+      highlightedPath,
+    )
+    : []
+  const visibleNodeCount = people.length
+  const visibleEdgeCount = displayRelationships.length
+  const displaySecondaryRelationships = centerPerson
+    ? displayRelationships.filter((relationship) => !isRelationshipConnectedToPerson(relationship, centerPerson.id))
+    : []
+  const displayPrimaryRelationships = centerPerson
+    ? displayRelationships.filter((relationship) => isRelationshipConnectedToPerson(relationship, centerPerson.id))
+    : []
   const primaryEdgeSpreadById = centerPerson
-    ? getPrimaryEdgeSpreadMap(primaryRelationships, nodePositions, centerPerson.id)
+    ? getPrimaryEdgeSpreadMap(displayPrimaryRelationships, nodePositions, centerPerson.id)
     : new Map<string, PrimaryEdgeSpread>()
-  const endpointSpreadById = getEndpointSpreadMap(visibleRelationships, nodePositions)
-  const showSecondaryLabels = secondaryRelationships.length <= 4 && visibleNodeCount <= 8
+  const endpointSpreadById = getEndpointSpreadMap(displayRelationships, nodePositions)
+  const showSecondaryLabels = displaySecondaryRelationships.length <= 4 && visibleNodeCount <= 8
   const secondaryEdges = centerPerson
-    ? secondaryRelationships
+    ? displaySecondaryRelationships
       .map((relationship) => createGraphEdge(
         relationship,
         nodePositions,
@@ -1019,7 +1238,7 @@ export async function loadGraphData(options: GraphLoadOptions = {}): Promise<Gra
       ))
     : []
   const primaryEdges = centerPerson
-    ? primaryRelationships
+    ? displayPrimaryRelationships
       .map((relationship) => createGraphEdge(
         relationship,
         nodePositions,

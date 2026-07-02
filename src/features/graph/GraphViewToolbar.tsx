@@ -29,7 +29,7 @@ export default function GraphViewToolbar({
   const viewLabel = viewMode === 'islands' ? '全部关系岛' : getPersonLabel(centerPerson)
 
   return (
-    <section className="shrink-0 rounded-[1.25rem] bg-white/72 px-3 py-2 shadow-[0_14px_30px_rgba(218,116,139,0.10)] ring-1 ring-rose/10 backdrop-blur">
+    <section className="relative z-30 shrink-0 rounded-[1.25rem] bg-white/72 px-3 py-2 shadow-[0_14px_30px_rgba(218,116,139,0.10)] ring-1 ring-rose/10 backdrop-blur">
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-black uppercase tracking-[0.14em] text-rose/65">当前视角</p>
@@ -69,7 +69,7 @@ function ToolbarButton({
   return (
     <button
       type="button"
-      className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-black shadow-[0_10px_22px_rgba(218,116,139,0.08)] ring-1 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
+      className={`inline-flex h-9 shrink-0 touch-manipulation items-center gap-1.5 rounded-full px-3 text-xs font-black shadow-[0_10px_22px_rgba(218,116,139,0.08)] ring-1 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
         active
           ? 'bg-[#ffe3ec] text-rose ring-rose/20'
           : 'bg-white/90 text-ink/68 ring-rose/10'
